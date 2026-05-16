@@ -332,6 +332,14 @@ function loadData() {
       const parsed = JSON.parse(raw);
       data = Object.assign(getDefaultData(), parsed);
       data.goals = data.goals || getDefaultData().goals;
+      // 迁移：将旧版求职目标替换为专注力
+      const hasJobGoal = data.goals.some(g => g.id === 'job');
+      if (hasJobGoal) {
+        data.goals = data.goals.filter(g => g.id !== 'job');
+        if (!data.goals.some(g => g.id === 'focus')) {
+          data.goals.push({ id: 'focus', title: '提升专注力', current: 10, target: 100, unit: '%', icon: '🧠', color: 'purple' });
+        }
+      }
       data.templates = data.templates || [...DEFAULT_TEMPLATES];
       data.weekGymSchedules = data.weekGymSchedules || {};
       data.dailyPlans = data.dailyPlans || {};
