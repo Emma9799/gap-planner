@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#059669">
+<meta name="description" content="GAP 期间的生活规划工具——追踪健身、骑行、求职与日常生活">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>GAP 规划</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+<style>
+  :root { --safe-bottom: env(safe-area-inset-bottom, 0px); }
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #f5f0eb; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+  .app-shell { height: 100%; display: flex; flex-direction: column; }
+  .app-main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+  .app-main::-webkit-scrollbar { width: 0; }
+  .tab-panel { display: none; min-height: 100%; }
+  .tab-panel.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .bottom-nav { padding-bottom: var(--safe-bottom); }
+  .chip { transition: all 0.15s ease; }
+  .chip:active { transform: scale(0.95); }
+  .day-card:active { background: #fafaf9; }
+  .gym-cell { transition: all 0.2s ease; }
+  .gym-cell:active { transform: scale(0.9); }
+  .progress-fill { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+  .slide-in { animation: slideIn 0.25s ease-out; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .toast { animation: toastIn 0.3s ease, toastOut 0.3s ease 1.2s forwards; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+  .tpl-btn { min-width: 72px; }
+  input[type="text"], input[type="number"] { font-size: 16px; }
+  /* PWA 状态栏适配 */
+  @supports (-webkit-touch-callout: none) {
+    .app-shell { padding-top: env(safe-area-inset-top, 0px); }
+  }
+  /* 安装按钮动画 */
+  .install-banner { animation: bannerIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  @keyframes bannerIn { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="app-shell max-w-lg mx-auto bg-[#f5f0eb] relative">
+
+  <!-- ===== 顶栏 ===== -->
+  <header class="bg-white/80 backdrop-blur-lg border-b border-stone-100 px-4 py-2.5 flex items-center justify-between flex-shrink-0 z-20">
+    <div class="flex items-center gap-2">
+      <span class="text-xl">🏖️</span>
+      <div>
+        <p class="text-xs text-stone-400" id="greeting">下午好</p>
+        <p class="text-sm font-bold text-stone-700" id="headerDate"></p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button id="weatherBtn" onclick="toggleWeather()" class="chip px-2.5 py-1.5 rounded-full text-xs font-medium flex items-center gap-1 transition"
+        title="切换天气状态">
+        <span id="weatherIcon">☀️</span>
+      </button>
+      <button onclick="openSmartPlan()" class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500 text-white flex items-center gap-1 shadow-sm"
+        title="智能规划未来三天">
+        <i class="fa fa-magic"></i><span class="hidden sm:inline ml-0.5">规划</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== 主内容区 ===== -->
+  <main class="app-main px-4 pt-3 pb-4" id="appMain">
+
+    <!-- TAB 1: 今日 -->
+    <section class="tab-panel active" id="tab-today">
+      <div class="flex items-center justify-between mb-3">
+        <button onclick="shiftDay(-1)" class="w-9 h-9 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:bg-stone-50 active:bg-stone-100 transition">
+          <i class="fa fa-chevron-left text-xs"></i>
+        </button>
+        <div class="text-center">
+          <p class="text-sm font-bold text-stone-700" id="todayDayLabel">周三</p>
+          <p class="text-xs text-stone-400" id="todayDateLabel">5月16日</p>
+        </div>
+        <button onclick="shiftDay(1)" class="w-9 h-9 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:bg-stone-50 active:bg-stone-100 transition">
+          <i class="fa fa-chevron-right text-xs"></i>
+        </button>
+      </div>
+
+      <div id="dayDetail"></div>
+
+      <div class="mt-4">
+        <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-2">快速添加</p>
+        <div class="flex flex-wrap gap-2" id="quickAddBar"></div>
+      </div>
+
+      <div class="mt-3 flex gap-2">
+        <input id="customInput" type="text" placeholder="写点想做的事..."
+          class="flex-1 px-3 py-2.5 text-sm bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent">
+        <button onclick="addCustomToViewedDay()" class="px-4 py-2.5 bg-stone-700 text-white text-sm rounded-xl active:bg-stone-800 transition font-medium flex-shrink-0">
+          <i class="fa fa-plus mr-1"></i>添加
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 2: 周视图 -->
+    <section class="tab-panel" id="tab-week">
+      <div class="flex items-center justify-between mb-3">
+        <button onclick="shiftWeek(-1)" class="w-9 h-9 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 active:bg-stone-100 transition">
+          <i class="fa fa-chevron-left text-xs"></i>
+        </button>
+        <div class="text-center">
+          <p class="text-sm font-bold text-stone-700" id="weekRangeLabel"></p>
+          <p class="text-xs text-stone-400" id="weekLabel"></p>
+        </div>
+        <button onclick="shiftWeek(1)" class="w-9 h-9 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 active:bg-stone-100 transition">
+          <i class="fa fa-chevron-right text-xs"></i>
+        </button>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4 mb-3">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-sm font-semibold text-stone-700">
+            <span class="text-lg mr-1">🏋️</span>本周健身私教课
+          </p>
+          <button onclick="copyPrevWeekGym()" class="text-xs px-2.5 py-1 rounded-full bg-stone-100 text-stone-500 active:bg-stone-200 transition">
+            <i class="fa fa-copy mr-1"></i>复制上周
+          </button>
+        </div>
+        <p class="text-xs text-stone-400 mb-3">点击日期切换健身课，每天 <b>12:00-13:00</b></p>
+        <div class="grid grid-cols-7 gap-1.5" id="gymDaySelector"></div>
+      </div>
+
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-2">每日安排</p>
+      <div class="space-y-2" id="weekDayList"></div>
+    </section>
+
+    <!-- TAB 3: 目标 -->
+    <section class="tab-panel" id="tab-goals">
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-3">目标追踪</p>
+      <div class="space-y-3" id="goalsPanel"></div>
+
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">活动模板</p>
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4">
+        <p class="text-xs text-stone-400 mb-3">管理你的常用活动（点击删除，下方添加）</p>
+        <div class="flex flex-wrap gap-2 mb-3" id="templateManageList"></div>
+        <div class="flex gap-2">
+          <input id="newTemplateInput" type="text" placeholder="新活动名 + emoji，如：🧹 打扫"
+            class="flex-1 px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400">
+          <button onclick="addTemplate()" class="px-3 py-2 bg-stone-700 text-white text-sm rounded-xl active:bg-stone-800 transition font-medium flex-shrink-0">
+            <i class="fa fa-plus"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-4 flex gap-2">
+        <button onclick="exportData()" class="flex-1 px-3 py-2.5 text-sm border border-stone-200 bg-white rounded-xl active:bg-stone-50 transition text-stone-500">
+          <i class="fa fa-download mr-1"></i>导出数据
+        </button>
+        <button onclick="resetData()" class="flex-1 px-3 py-2.5 text-sm border border-red-200 bg-white rounded-xl active:bg-red-50 transition text-red-400">
+          <i class="fa fa-refresh mr-1"></i>重置全部
+        </button>
+      </div>
+      <p class="text-xs text-stone-300 text-center mt-2">数据仅存储在浏览器本地</p>
+    </section>
+
+  </main>
+
+  <!-- ===== 底部导航 ===== -->
+  <nav class="bottom-nav bg-white/80 backdrop-blur-lg border-t border-stone-200 flex items-center justify-around flex-shrink-0 z-20" style="height: calc(56px + var(--safe-bottom))">
+    <button onclick="switchTab('today')" class="tab-btn flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition" data-tab="today">
+      <i class="fa fa-calendar-check-o text-lg"></i>
+      <span class="text-[10px] font-medium">今日</span>
+    </button>
+    <button onclick="switchTab('week')" class="tab-btn flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition" data-tab="week">
+      <i class="fa fa-calendar text-lg"></i>
+      <span class="text-[10px] font-medium">周视图</span>
+    </button>
+    <button onclick="switchTab('goals')" class="tab-btn flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition" data-tab="goals">
+      <i class="fa fa-bullseye text-lg"></i>
+      <span class="text-[10px] font-medium">目标</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ===== PWA 安装提示条 ===== -->
+<div id="installBanner" class="fixed bottom-0 left-0 right-0 z-50 hidden install-banner"
+     style="padding-bottom: calc(70px + var(--safe-bottom))">
+  <div class="max-w-lg mx-auto px-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-emerald-200 p-4 flex items-center gap-3">
+      <span class="text-3xl">🏖️</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold text-stone-800">GAP 生活规划助手</p>
+        <p class="text-xs text-stone-400">添加到桌面，像原生 APP 一样使用</p>
+      </div>
+      <button onclick="installApp()" id="installBtn" class="flex-shrink-0 px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-xl active:bg-emerald-600 transition">
+        安装
+      </button>
+      <button onclick="dismissInstall()" class="flex-shrink-0 text-stone-300 hover:text-stone-400 transition px-1">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 弹窗：智能规划 ===== -->
+<div id="smartPlanModal" class="fixed inset-0 bg-black/40 z-50 hidden flex items-end sm:items-center justify-center" onclick="closeSmartPlan(event)">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-5 pb-7 slide-in" style="padding-bottom: calc(1.75rem + var(--safe-bottom))" onclick="event.stopPropagation()">
+    <div class="w-10 h-1 bg-stone-300 rounded-full mx-auto mb-4 sm:hidden"></div>
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-base font-bold text-stone-800"><i class="fa fa-magic text-emerald-500 mr-2"></i>智能规划</h3>
+      <button onclick="closeSmartPlan()" class="text-stone-400 text-xl">&times;</button>
+    </div>
+    <p class="text-xs text-stone-500 mb-4">根据本周课表、天气和目标进度，为未来几天推荐安排</p>
+    <div id="smartPlanPreview" class="space-y-2 mb-4 max-h-64 overflow-y-auto"></div>
+    <div class="flex gap-2">
+      <button onclick="closeSmartPlan()" class="flex-1 px-4 py-2.5 text-sm border border-stone-200 rounded-xl active:bg-stone-50 transition">取消</button>
+      <button onclick="applySmartPlan()" class="flex-1 px-4 py-2.5 text-sm bg-emerald-500 text-white rounded-xl active:bg-emerald-600 transition font-medium">
+        <i class="fa fa-check mr-1"></i>应用全部
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 弹窗：记录骑行 ===== -->
+<div id="cyclingModal" class="fixed inset-0 bg-black/40 z-50 hidden flex items-end sm:items-center justify-center" onclick="closeCyclingModal(event)">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-5 pb-7" style="padding-bottom: calc(1.75rem + var(--safe-bottom))" onclick="event.stopPropagation()">
+    <div class="w-10 h-1 bg-stone-300 rounded-full mx-auto mb-4 sm:hidden"></div>
+    <h3 class="text-base font-bold text-stone-800 mb-3">🚴 记录骑行里程</h3>
+    <p class="text-xs text-stone-500 mb-4">今天骑了多少公里？计入海南骑行目标。</p>
+    <input id="cyclingKmInput" type="number" min="1" max="200" placeholder="输入公里数" inputmode="numeric"
+      class="w-full px-4 py-3 text-lg bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 mb-4">
+    <div class="flex gap-2">
+      <button onclick="closeCyclingModal()" class="flex-1 px-4 py-2.5 text-sm border border-stone-200 rounded-xl active:bg-stone-50 transition">取消</button>
+      <button onclick="saveCyclingKm()" class="flex-1 px-4 py-2.5 text-sm bg-emerald-500 text-white rounded-xl active:bg-emerald-600 transition font-medium">记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 弹窗：某天详情 ===== -->
+<div id="dayDetailModal" class="fixed inset-0 bg-black/40 z-50 hidden flex items-end sm:items-center justify-center" onclick="closeDayDetail(event)">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-5 pb-7" style="padding-bottom: calc(1.75rem + var(--safe-bottom))" onclick="event.stopPropagation()">
+    <div class="w-10 h-1 bg-stone-300 rounded-full mx-auto mb-4 sm:hidden"></div>
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-base font-bold text-stone-700" id="dayDetailTitle"></h3>
+      <button onclick="closeDayDetail()" class="text-stone-400 text-xl">&times;</button>
+    </div>
+    <div id="dayDetailContent" class="space-y-2 max-h-80 overflow-y-auto"></div>
+    <div class="mt-3 flex gap-2">
+      <input id="dayDetailInput" type="text" placeholder="添加活动..."
+        class="flex-1 px-3 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400">
+      <button onclick="addToDayDetail()" class="px-4 py-2.5 bg-stone-700 text-white text-sm rounded-xl active:bg-stone-800 transition font-medium">
+        <i class="fa fa-plus"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-full bg-stone-800 text-white text-xs font-medium shadow-lg"></div>
+
+<script>
+// ============================================================
+// 数据层
+// ============================================================
+const STORAGE_KEY = 'gap_planner_v2';
+
+const DEFAULT_TEMPLATES = [
+  { title: '骑车遛弯', icon: '🚴', type: 'outdoor' },
+  { title: '练车', icon: '🚗', type: 'skill' },
+  { title: '户外晒太阳看书', icon: '📖', type: 'outdoor' },
+  { title: '海南骑行训练', icon: '🚴', type: 'goal' },
+  { title: '投简历 / 看职位', icon: '💼', type: 'career' },
+  { title: '自主拉伸 / 瑜伽', icon: '🧘', type: 'health' },
+  { title: '做饭', icon: '🍳', type: 'life' },
+  { title: '整理房间', icon: '🏠', type: 'life' },
+];
+
+const TYPE_COLORS = {
+  outdoor: 'emerald', skill: 'sky', career: 'amber', health: 'rose', life: 'purple', goal: 'emerald',
+};
+
+function getDefaultData() {
+  return {
+    weekGymSchedules: {},
+    dailyPlans: {},
+    swimRestDays: [],
+    goals: [
+      { id: 'cycling', title: '海南骑行剩余路程', current: 0, target: 600, unit: 'km', icon: '🚴', color: 'emerald' },
+      { id: 'swim', title: '学会自由泳', current: 30, target: 100, unit: '%', icon: '🏊', color: 'sky' },
+      { id: 'job', title: '找到心仪工作', current: 0, target: 5, unit: '场面试', icon: '💼', color: 'amber' },
+    ],
+    templates: [...DEFAULT_TEMPLATES],
+    weatherGood: true,
+    viewedDayOffset: 0,
+    viewedWeekOffset: 0,
+  };
+}
+
+let data = getDefaultData();
+let dayDetailModalDate = null;
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      data = Object.assign(getDefaultData(), parsed);
+      data.goals = data.goals || getDefaultData().goals;
+      data.templates = data.templates || [...DEFAULT_TEMPLATES];
+      data.weekGymSchedules = data.weekGymSchedules || {};
+      data.dailyPlans = data.dailyPlans || {};
+      data.swimRestDays = data.swimRestDays || [];
+    }
+  } catch (e) {
+    data = getDefaultData();
+  }
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ============================================================
+// 工具函数
+// ============================================================
+function today() { return new Date(); }
+function dateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function dayOfWeek(d) { return new Date(d).getDay(); }
+function isToday(d) { return dateStr(d) === dateStr(today()); }
+function isTomorrow(d) { return dateStr(d) === dateStr(addDays(today(), 1)); }
+
+const DAY_NAMES = ['周日','周一','周二','周三','周四','周五','周六'];
+function dayNameCN(d) { return DAY_NAMES[dayOfWeek(d)]; }
+function formatMD(d) { return `${d.getMonth()+1}月${d.getDate()}日`; }
+
+function getRelativeLabel(d) {
+  if (isToday(d)) return '今天';
+  if (isTomorrow(d)) return '明天';
+  if (dateStr(d) === dateStr(addDays(today(), 2))) return '后天';
+  return '';
+}
+
+function getGreeting() {
+  const h = today().getHours();
+  if (h < 6) return '夜深了 🌙';
+  if (h < 9) return '早上好 ☀️';
+  if (h < 12) return '上午好 💪';
+  if (h < 14) return '中午好 🍚';
+  if (h < 18) return '下午好 🌤️';
+  if (h < 21) return '晚上好 🌆';
+  return '早点休息 🌙';
+}
+
+function getISOWeek(d) {
+  const date = new Date(d);
+  date.setHours(0,0,0,0);
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  return {
+    year: date.getFullYear(),
+    week: 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
+  };
+}
+
+function getWeekKey(d) {
+  const w = getISOWeek(d);
+  return `${w.year}-W${String(w.week).padStart(2,'0')}`;
+}
+
+function getMondayOfWeek(offset = 0) {
+  const t = today();
+  const dow = dayOfWeek(t);
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  return addDays(t, mondayOffset + offset * 7);
+}
+
+function getDateForDay(monday, dayIndex) {
+  return addDays(monday, dayIndex === 0 ? 6 : dayIndex - 1);
+}
+
+function getGymEvent(d) {
+  const wk = getWeekKey(d);
+  const gymDays = data.weekGymSchedules[wk];
+  if (!gymDays || !gymDays.includes(dayOfWeek(d))) return null;
+  return { title: '健身房私教·核心训练', icon: '🏋️', time: '12:00', endTime: '13:00', color: 'rose', fixed: true };
+}
+
+const SWIM_EVENT = { title: '小区泳池·自由泳练习', icon: '🏊', time: '19:00', endTime: '20:00', color: 'sky', fixed: true, rest: false };
+
+function getSwimEvent(d) {
+  const ds = dateStr(d);
+  if (data.swimRestDays.includes(ds)) return { ...SWIM_EVENT, rest: true };
+  return SWIM_EVENT;
+}
+
+function getPlans(d) {
+  return data.dailyPlans[dateStr(d)] || [];
+}
+
+function ensureWeekSchedule(d) {
+  const wk = getWeekKey(d);
+  if (!data.weekGymSchedules[wk]) {
+    const prevMonday = addDays(getMondayOfWeek((data.viewedWeekOffset || 0) - 1), 0);
+    const prevWk = getWeekKey(prevMonday);
+    if (data.weekGymSchedules[prevWk]) {
+      data.weekGymSchedules[wk] = [...data.weekGymSchedules[prevWk]];
+    } else {
+      data.weekGymSchedules[wk] = [2, 4, 6];
+    }
+    saveData();
+  }
+  return data.weekGymSchedules[wk];
+}
+
+// ============================================================
+// 当前查看日期
+// ============================================================
+function getViewedDate() {
+  return addDays(today(), data.viewedDayOffset || 0);
+}
+
+// ============================================================
+// 顶栏
+// ============================================================
+function updateHeader() {
+  document.getElementById('greeting').textContent = getGreeting();
+  document.getElementById('headerDate').textContent =
+    `${formatMD(today())} ${dayNameCN(today())}`;
+  updateWeatherUI();
+}
+
+function updateWeatherUI() {
+  const btn = document.getElementById('weatherBtn');
+  const icon = document.getElementById('weatherIcon');
+  if (data.weatherGood) {
+    icon.textContent = '☀️';
+    btn.className = btn.className.replace(/bg-\w+-\d+/g, 'bg-amber-50').replace(/text-\w+-\d+/g, 'text-amber-700').replace(/border-\w+-\d+/g, 'border-amber-300');
+    btn.classList.add('border', 'border-amber-300', 'bg-amber-50', 'text-amber-700');
+  } else {
+    icon.textContent = '🌧️';
+    btn.className = btn.className.replace(/bg-\w+-\d+/g, 'bg-slate-100').replace(/text-\w+-\d+/g, 'text-slate-500').replace(/border-\w+-\d+/g, 'border-slate-300');
+    btn.classList.add('border', 'border-slate-300', 'bg-slate-100', 'text-slate-500');
+  }
+}
+
+function toggleWeather() {
+  data.weatherGood = !data.weatherGood;
+  saveData();
+  updateWeatherUI();
+  renderTodayTab();
+}
+
+// ============================================================
+// Tab 切换
+// ============================================================
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const isActive = b.dataset.tab === name;
+    b.querySelector('i').style.color = isActive ? '#059669' : '#a8a29e';
+    b.querySelector('span').style.color = isActive ? '#059669' : '#a8a29e';
+    b.querySelector('i').className = b.querySelector('i').className.replace(/fa-\w+(-\w+)?/, m => {
+      const base = m.replace('-o', '');
+      return isActive ? base : base + '-o';
+    });
+  });
+
+  if (name === 'today') renderTodayTab();
+  else if (name === 'week') renderWeekTab();
+  else if (name === 'goals') renderGoalsTab();
+}
+
+// ============================================================
+// TAB 1: 今日
+// ============================================================
+function renderTodayTab() {
+  const d = getViewedDate();
+  const ds = dateStr(d);
+
+  document.getElementById('todayDayLabel').textContent = dayNameCN(d);
+  document.getElementById('todayDateLabel').textContent = formatMD(d);
+  if (isToday(d)) document.getElementById('todayDayLabel').textContent += ' · 今天';
+  else if (isTomorrow(d)) document.getElementById('todayDayLabel').textContent += ' · 明天';
+
+  const gym = getGymEvent(d);
+  const swim = getSwimEvent(d);
+  const plans = getPlans(d);
+
+  let html = '';
+  const fixedEvents = [gym, swim].filter(Boolean);
+
+  if (fixedEvents.length > 0) {
+    html += '<div class="space-y-2 mb-3">';
+    fixedEvents.forEach(e => {
+      if (e.rest) {
+        html += `
+          <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm">
+            <span class="text-lg">🏊</span>
+            <div class="flex-1"><div class="font-medium text-slate-400 line-through">${e.title}</div></div>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">今日休息</span>
+          </div>`;
+      } else {
+        html += `
+          <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-${e.color}-50 border border-${e.color}-200 text-sm group">
+            <span class="text-lg">${e.icon}</span>
+            <div class="flex-1">
+              <div class="font-medium text-stone-700">${e.title}</div>
+              <div class="text-xs text-stone-400">${e.time} - ${e.endTime}</div>
+            </div>
+            ${e === gym ? '<span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-600">本周课表</span>' : ''}
+            ${e === swim ? `<button onclick="toggleSwimRest('${ds}')" class="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-400 active:bg-stone-200 transition" title="标记为休息日">休息</button>` : ''}
+          </div>`;
+      }
+    });
+    html += '</div>';
+  }
+
+  if (plans.length === 0) {
+    html += `
+      <div class="text-center py-6 text-stone-300">
+        <p class="text-3xl mb-2">📋</p>
+        <p class="text-sm">${isToday(d) ? '今天还没安排自由活动' : '暂无安排'}</p>
+        <p class="text-xs mt-1">点击下方按钮或输入框添加</p>
+        ${data.weatherGood ? '<p class="text-xs text-emerald-400 mt-1">☀️ 天气不错，适合出门</p>' : ''}
+      </div>`;
+  } else {
+    html += '<div class="space-y-1.5">';
+    plans.forEach((p, i) => {
+      const tc = TYPE_COLORS[p.type] || 'stone';
+      html += `
+        <div class="slide-in flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-stone-100 text-sm group active:bg-stone-50 transition">
+          <span class="text-lg cursor-pointer flex-shrink-0" onclick="toggleDone('${ds}',${i})">${p.done ? '✅' : (p.icon || '📌')}</span>
+          <div class="flex-1 min-w-0 ${p.done ? 'line-through opacity-40' : ''}">
+            <div class="font-medium text-stone-700 truncate">${p.title}</div>
+            ${p.time ? `<div class="text-xs text-stone-400">${p.time}</div>` : ''}
+          </div>
+          ${p.type ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-${tc}-100 text-${tc}-600 hidden sm:inline flex-shrink-0">${p.type==='outdoor'?'户外':p.type==='career'?'求职':p.type==='skill'?'技能':p.type==='health'?'健康':p.type==='goal'?'目标':'生活'}</span>` : ''}
+          <button onclick="deletePlan('${ds}',${i})" class="opacity-0 group-hover:opacity-100 text-stone-400 active:text-red-500 transition px-1 flex-shrink-0">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>`;
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('dayDetail').innerHTML = html;
+  renderQuickAddBar();
+}
+
+function renderQuickAddBar() {
+  const container = document.getElementById('quickAddBar');
+  let h = '';
+  data.templates.forEach((t, i) => {
+    const dim = t.type === 'outdoor' && !data.weatherGood ? ' opacity-60' : '';
+    h += `<button onclick="quickAddTemplate(${i})" class="tpl-btn chip px-3 py-2 rounded-full text-xs font-medium bg-white border border-stone-200 active:bg-stone-50 transition shadow-sm${dim}">
+      <span class="mr-1">${t.icon}</span>${t.title}
+    </button>`;
+  });
+  container.innerHTML = h;
+}
+
+function shiftDay(dir) {
+  data.viewedDayOffset = (data.viewedDayOffset || 0) + dir;
+  if (data.viewedDayOffset < 0) data.viewedDayOffset = 0;
+  if (data.viewedDayOffset > 14) data.viewedDayOffset = 14;
+  saveData();
+  renderTodayTab();
+}
+
+function quickAddTemplate(idx) {
+  const t = data.templates[idx];
+  if (!t) return;
+  const d = getViewedDate();
+  const ds = dateStr(d);
+  if (!data.dailyPlans[ds]) data.dailyPlans[ds] = [];
+  data.dailyPlans[ds].push({
+    id: Date.now().toString(36),
+    title: t.title, icon: t.icon, type: t.type || '', done: false, time: '',
+  });
+  saveData();
+  renderTodayTab();
+  showToast(`已添加到${getRelativeLabel(d) || dayNameCN(d)}`);
+}
+
+function addCustomToViewedDay() {
+  const input = document.getElementById('customInput');
+  const title = input.value.trim();
+  if (!title) return;
+  const d = getViewedDate();
+  const ds = dateStr(d);
+  if (!data.dailyPlans[ds]) data.dailyPlans[ds] = [];
+  data.dailyPlans[ds].push({
+    id: Date.now().toString(36), title, icon: '📌', type: '', done: false, time: '',
+  });
+  input.value = '';
+  saveData();
+  renderTodayTab();
+}
+
+function toggleSwimRest(ds) {
+  const idx = data.swimRestDays.indexOf(ds);
+  if (idx >= 0) data.swimRestDays.splice(idx, 1);
+  else data.swimRestDays.push(ds);
+  saveData();
+  renderTodayTab();
+}
+
+function toggleDone(ds, idx) {
+  const plans = data.dailyPlans[ds];
+  if (plans && plans[idx]) { plans[idx].done = !plans[idx].done; saveData(); renderTodayTab(); }
+}
+
+function deletePlan(ds, idx) {
+  if (data.dailyPlans[ds]) {
+    data.dailyPlans[ds].splice(idx, 1);
+    if (data.dailyPlans[ds].length === 0) delete data.dailyPlans[ds];
+    saveData();
+    renderTodayTab();
+  }
+}
+
+// ============================================================
+// TAB 2: 周视图
+// ============================================================
+function renderWeekTab() {
+  const monday = getMondayOfWeek(data.viewedWeekOffset || 0);
+  const sunday = addDays(monday, 6);
+
+  document.getElementById('weekRangeLabel').textContent =
+    `${monday.getMonth()+1}/${monday.getDate()} - ${sunday.getMonth()+1}/${sunday.getDate()}`;
+  document.getElementById('weekLabel').textContent =
+    `${monday.getFullYear()}年 第${getISOWeek(monday).week}周`;
+
+  ensureWeekSchedule(monday);
+  const gymDays = data.weekGymSchedules[getWeekKey(monday)] || [];
+
+  let gymHtml = '';
+  for (let i = 1; i <= 7; i++) {
+    const dayIdx = i === 7 ? 0 : i;
+    const date = getDateForDay(monday, dayIdx);
+    const isGym = gymDays.includes(dayIdx);
+    const isTodayDate = isToday(date);
+    gymHtml += `
+      <button onclick="toggleGymDay('${getWeekKey(monday)}',${dayIdx})"
+        class="gym-cell rounded-xl py-2.5 flex flex-col items-center gap-1 text-xs font-medium transition
+        ${isGym ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-300' : 'bg-stone-50 text-stone-400 hover:bg-stone-100'}
+        ${isTodayDate ? 'ring-2 ring-emerald-400 ring-offset-1' : ''}">
+        <span>${DAY_NAMES[dayIdx].replace('周','')}</span>
+        <span class="text-base">${isGym ? '🏋️' : '·'}</span>
+        <span>${date.getDate()}</span>
+      </button>`;
+  }
+  document.getElementById('gymDaySelector').innerHTML = gymHtml;
+
+  let dayListHtml = '';
+  for (let i = 1; i <= 7; i++) {
+    const dayIdx = i === 7 ? 0 : i;
+    const date = getDateForDay(monday, dayIdx);
+    const ds = dateStr(date);
+    const gym = getGymEvent(date);
+    const swim = getSwimEvent(date);
+    const plans = getPlans(date);
+    const isTodayDate = isToday(date);
+    const totalCount = (gym ? 1 : 0) + (!swim.rest ? 1 : 0) + plans.length;
+
+    dayListHtml += `
+      <div class="day-card flex items-center gap-3 px-4 py-3 rounded-xl bg-white border ${isTodayDate ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-stone-100'} cursor-pointer active:bg-stone-50 transition"
+           onclick="openDayDetail('${ds}')">
+        <div class="text-center flex-shrink-0 w-10">
+          <div class="text-xs ${isTodayDate ? 'text-emerald-600 font-bold' : 'text-stone-400'}">${dayNameCN(date).replace('周','')}</div>
+          <div class="text-lg font-bold ${isTodayDate ? 'text-emerald-600' : 'text-stone-600'}">${date.getDate()}</div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${gym ? '<span class="text-sm">🏋️</span>' : ''}
+            ${!swim.rest ? '<span class="text-sm">🏊</span>' : (swim.rest ? '<span class="text-sm opacity-30">🏊‍♂️</span>' : '')}
+            ${plans.filter(p=>!p.done).map(p => `<span class="text-sm">${p.icon||'📌'}</span>`).join('')}
+            ${plans.filter(p=>p.done).map(p => `<span class="text-sm opacity-30">✅</span>`).join('')}
+            ${totalCount === 0 ? '<span class="text-xs text-stone-300">空闲</span>' : ''}
+          </div>
+        </div>
+        <div class="flex-shrink-0">
+          <span class="text-xs px-2 py-1 rounded-full ${totalCount > 0 ? 'bg-stone-100 text-stone-500' : 'bg-stone-50 text-stone-300'}">${totalCount}项</span>
+        </div>
+      </div>`;
+  }
+  document.getElementById('weekDayList').innerHTML = dayListHtml;
+}
+
+function shiftWeek(dir) {
+  data.viewedWeekOffset = (data.viewedWeekOffset || 0) + dir;
+  if (data.viewedWeekOffset < -2) data.viewedWeekOffset = -2;
+  if (data.viewedWeekOffset > 8) data.viewedWeekOffset = 8;
+  saveData();
+  renderWeekTab();
+}
+
+function toggleGymDay(weekKey, dayIdx) {
+  if (!data.weekGymSchedules[weekKey]) data.weekGymSchedules[weekKey] = [];
+  const arr = data.weekGymSchedules[weekKey];
+  const pos = arr.indexOf(dayIdx);
+  if (pos >= 0) arr.splice(pos, 1);
+  else { arr.push(dayIdx); arr.sort((a,b)=>a-b); }
+  saveData();
+  renderWeekTab();
+}
+
+function copyPrevWeekGym() {
+  const curMonday = getMondayOfWeek(data.viewedWeekOffset || 0);
+  const curWeekKey = getWeekKey(curMonday);
+  const prevMonday = addDays(curMonday, -7);
+  const prevWeekKey = getWeekKey(prevMonday);
+
+  if (data.weekGymSchedules[prevWeekKey] && data.weekGymSchedules[prevWeekKey].length > 0) {
+    data.weekGymSchedules[curWeekKey] = [...data.weekGymSchedules[prevWeekKey]];
+  } else {
+    data.weekGymSchedules[curWeekKey] = [2, 4, 6];
+  }
+  saveData();
+  renderWeekTab();
+  showToast('已复制上周课表');
+}
+
+// ============================================================
+// 弹窗：某天详情
+// ============================================================
+function openDayDetail(ds) {
+  dayDetailModalDate = ds;
+  const parts = ds.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  document.getElementById('dayDetailTitle').textContent =
+    `${formatMD(d)} ${dayNameCN(d)} ${getRelativeLabel(d) ? '· ' + getRelativeLabel(d) : ''}`;
+  renderDayDetailContent();
+  document.getElementById('dayDetailModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('dayDetailInput').focus(), 200);
+}
+
+function renderDayDetailContent() {
+  const ds = dayDetailModalDate;
+  if (!ds) return;
+  const parts = ds.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  const gym = getGymEvent(d);
+  const swim = getSwimEvent(d);
+  const plans = getPlans(d);
+
+  let h = '';
+  if (gym) {
+    h += `<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-sm">
+      <span>🏋️</span><span class="font-medium text-stone-700">${gym.title}</span>
+      <span class="text-xs text-stone-400 ml-auto">${gym.time}-${gym.endTime}</span></div>`;
+  }
+  if (swim && !swim.rest) {
+    h += `<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-sm">
+      <span>🏊</span><span class="font-medium text-stone-700">${swim.title}</span>
+      <span class="text-xs text-stone-400 ml-auto">${swim.time}-${swim.endTime}</span></div>`;
+  }
+  if (!plans.length) {
+    h += '<p class="text-center text-stone-300 text-sm py-3">暂无自由安排</p>';
+  } else {
+    plans.forEach((p, i) => {
+      h += `<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-50 border border-stone-100 text-sm group">
+        <span class="cursor-pointer" onclick="toggleDoneInModal('${ds}',${i})">${p.done ? '✅' : (p.icon||'📌')}</span>
+        <span class="flex-1 ${p.done ? 'line-through opacity-40' : 'text-stone-700'}">${p.title}</span>
+        <button onclick="deletePlanInModal('${ds}',${i})" class="text-stone-400 active:text-red-500"><i class="fa fa-times"></i></button>
+      </div>`;
+    });
+  }
+  document.getElementById('dayDetailContent').innerHTML = h;
+}
+
+function addToDayDetail() {
+  const input = document.getElementById('dayDetailInput');
+  const title = input.value.trim();
+  if (!title || !dayDetailModalDate) return;
+  const ds = dayDetailModalDate;
+  if (!data.dailyPlans[ds]) data.dailyPlans[ds] = [];
+  data.dailyPlans[ds].push({
+    id: Date.now().toString(36), title, icon: '📌', type: '', done: false, time: '',
+  });
+  input.value = '';
+  saveData();
+  renderDayDetailContent();
+}
+
+function toggleDoneInModal(ds, i) {
+  if (data.dailyPlans[ds] && data.dailyPlans[ds][i]) {
+    data.dailyPlans[ds][i].done = !data.dailyPlans[ds][i].done;
+    saveData();
+    renderDayDetailContent();
+  }
+}
+
+function deletePlanInModal(ds, i) {
+  if (data.dailyPlans[ds]) {
+    data.dailyPlans[ds].splice(i, 1);
+    if (data.dailyPlans[ds].length === 0) delete data.dailyPlans[ds];
+    saveData();
+    renderDayDetailContent();
+  }
+}
+
+function closeDayDetail(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('dayDetailModal').classList.add('hidden');
+  dayDetailModalDate = null;
+  renderWeekTab();
+  renderTodayTab();
+}
+
+// ============================================================
+// TAB 3: 目标
+// ============================================================
+function renderGoalsTab() {
+  const container = document.getElementById('goalsPanel');
+  let h = '';
+  data.goals.forEach(g => {
+    const pct = g.target > 0 ? Math.min(100, Math.round((g.current / g.target) * 100)) : 0;
+    const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-stone-300';
+    h += `
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">${g.icon}</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-sm font-semibold text-stone-700">${g.title}</span>
+              <span class="text-xs text-stone-400">${g.current} / ${g.target} ${g.unit}</span>
+            </div>
+            <div class="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden">
+              <div class="progress-fill h-full rounded-full ${barColor}" style="width:${pct}%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-3">
+          ${g.id === 'cycling' ? `
+            <button onclick="openCyclingModal()" class="flex-1 px-3 py-2 text-xs bg-emerald-50 text-emerald-600 rounded-xl active:bg-emerald-100 transition font-medium"><i class="fa fa-plus mr-1"></i>记录里程</button>
+            <button onclick="quickAddByTitle('海南骑行训练','🚴','goal')" class="px-3 py-2 text-xs bg-emerald-50 text-emerald-600 rounded-xl active:bg-emerald-100 transition"><i class="fa fa-calendar-plus-o"></i></button>
+          ` : ''}
+          ${g.id === 'swim' ? `
+            <button onclick="incrementSwim()" class="flex-1 px-3 py-2 text-xs bg-sky-50 text-sky-600 rounded-xl active:bg-sky-100 transition font-medium"><i class="fa fa-plus mr-1"></i>进度 +5%</button>
+          ` : ''}
+          ${g.id === 'job' ? `
+            <button onclick="incrementJob()" class="flex-1 px-3 py-2 text-xs bg-amber-50 text-amber-600 rounded-xl active:bg-amber-100 transition font-medium"><i class="fa fa-plus mr-1"></i>记录面试</button>
+            <button onclick="quickAddByTitle('投简历 / 看职位','💼','career')" class="px-3 py-2 text-xs bg-amber-50 text-amber-600 rounded-xl active:bg-amber-100 transition"><i class="fa fa-calendar-plus-o"></i></button>
+          ` : ''}
+        </div>
+      </div>`;
+  });
+  container.innerHTML = h;
+
+  let th = '';
+  data.templates.forEach((t, i) => {
+    th += `<span class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs bg-stone-50 border border-stone-100 cursor-pointer active:bg-red-50 active:text-red-500 active:border-red-200 transition"
+                onclick="removeTemplate(${i})" title="点击删除">
+      ${t.icon} ${t.title} <i class="fa fa-times text-[10px] text-stone-300"></i>
+    </span>`;
+  });
+  document.getElementById('templateManageList').innerHTML = th || '<span class="text-xs text-stone-300">暂无自定义模板</span>';
+}
+
+function incrementSwim() {
+  const g = data.goals.find(g => g.id === 'swim');
+  if (g) { g.current = Math.min(g.target, g.current + 5); saveData(); renderGoalsTab(); }
+}
+
+function incrementJob() {
+  const g = data.goals.find(g => g.id === 'job');
+  if (g) { g.current = Math.min(g.target, g.current + 1); saveData(); renderGoalsTab(); showToast('面试次数 +1，加油！💪'); }
+}
+
+function removeTemplate(idx) {
+  if (idx >= 0 && idx < data.templates.length) {
+    data.templates.splice(idx, 1);
+    saveData();
+    renderGoalsTab();
+  }
+}
+
+function addTemplate() {
+  const input = document.getElementById('newTemplateInput');
+  const raw = input.value.trim();
+  if (!raw) return;
+  const match = raw.match(/^(\p{Emoji_Presentation}|\p{Emoji}️?)\s*(.+)/u);
+  const icon = match ? match[1] : '📌';
+  const title = match ? match[2] : raw;
+  data.templates.push({ title, icon, type: '' });
+  input.value = '';
+  saveData();
+  renderGoalsTab();
+  showToast('模板已添加');
+}
+
+function quickAddByTitle(title, icon, type) {
+  const d = today();
+  const ds = dateStr(d);
+  if (!data.dailyPlans[ds]) data.dailyPlans[ds] = [];
+  data.dailyPlans[ds].push({
+    id: Date.now().toString(36), title, icon, type, done: false, time: '',
+  });
+  saveData();
+  renderTodayTab();
+  showToast('已添加到今天');
+}
+
+// ============================================================
+// 智能规划
+// ============================================================
+let smartPlanSuggestions = [];
+
+function openSmartPlan() {
+  const dates = [addDays(today(), 1), addDays(today(), 2), addDays(today(), 3)];
+  smartPlanSuggestions = [];
+
+  const monday = getMondayOfWeek(0);
+  const weeklyCounts = {};
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i);
+    (getPlans(d)).forEach(p => {
+      weeklyCounts[p.title] = (weeklyCounts[p.title] || 0) + 1;
+    });
+  }
+
+  const pool = [
+    { title: '投简历 / 看职位', icon: '💼', type: 'career', maxPerWeek: 3 },
+    { title: '练车', icon: '🚗', type: 'skill', maxPerWeek: 2 },
+    { title: '骑车遛弯', icon: '🚴', type: 'outdoor', maxPerWeek: 3, outdoor: true },
+    { title: '海南骑行训练', icon: '🚴', type: 'goal', maxPerWeek: 2, outdoor: true },
+    { title: '户外晒太阳看书', icon: '📖', type: 'outdoor', maxPerWeek: 3, outdoor: true },
+    { title: '自主拉伸 / 瑜伽', icon: '🧘', type: 'health', maxPerWeek: 2 },
+    { title: '整理房间', icon: '🏠', type: 'life', maxPerWeek: 2 },
+    { title: '做饭', icon: '🍳', type: 'life', maxPerWeek: 2 },
+  ];
+
+  dates.forEach(date => {
+    const ds = dateStr(date);
+    const existing = getPlans(date);
+    if (existing.length >= 2) return;
+
+    const available = pool.filter(s => {
+      if (s.outdoor && !data.weatherGood) return false;
+      return (weeklyCounts[s.title] || 0) < s.maxPerWeek;
+    });
+
+    const count = Math.min(2 - existing.length, available.length);
+    const shuffled = available.sort(() => Math.random() - 0.5);
+    const suggestions = [];
+    for (let i = 0; i < count; i++) {
+      if (shuffled[i]) {
+        suggestions.push({ title: shuffled[i].title, icon: shuffled[i].icon, type: shuffled[i].type });
+        weeklyCounts[shuffled[i].title] = (weeklyCounts[shuffled[i].title] || 0) + 1;
+      }
+    }
+    if (suggestions.length > 0) smartPlanSuggestions.push({ ds, date, suggestions });
+  });
+
+  const preview = document.getElementById('smartPlanPreview');
+  if (smartPlanSuggestions.length === 0) {
+    preview.innerHTML = '<p class="text-center text-stone-400 py-4">未来几天已安排妥当，非常棒 ✨</p>';
+  } else {
+    preview.innerHTML = smartPlanSuggestions.map(s => `
+      <div class="border border-stone-200 rounded-xl p-3">
+        <p class="text-xs font-semibold text-stone-500 mb-1.5">${dayNameCN(s.date)} ${formatMD(s.date)} ${getRelativeLabel(s.date)}</p>
+        <div class="space-y-1">
+          ${s.suggestions.map(a => {
+            const tc = TYPE_COLORS[a.type] || 'stone';
+            return `<div class="flex items-center gap-2 text-sm text-stone-600"><span>${a.icon}</span><span>${a.title}</span><span class="text-[10px] px-1.5 py-0.5 rounded bg-${tc}-100 text-${tc}-600">推荐</span></div>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
+  }
+  document.getElementById('smartPlanModal').classList.remove('hidden');
+}
+
+function closeSmartPlan(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('smartPlanModal').classList.add('hidden');
+}
+
+function applySmartPlan() {
+  smartPlanSuggestions.forEach(s => {
+    if (!data.dailyPlans[s.ds]) data.dailyPlans[s.ds] = [];
+    s.suggestions.forEach(a => {
+      if (!data.dailyPlans[s.ds].some(p => p.title === a.title)) {
+        data.dailyPlans[s.ds].push({
+          id: Date.now().toString(36),
+          title: a.title, icon: a.icon, type: a.type, done: false, time: '',
+        });
+      }
+    });
+  });
+  saveData();
+  smartPlanSuggestions = [];
+  closeSmartPlan();
+  renderTodayTab();
+  showToast('智能规划已应用 ✅');
+}
+
+// ============================================================
+// 骑行里程弹窗
+// ============================================================
+function openCyclingModal() {
+  document.getElementById('cyclingModal').classList.remove('hidden');
+  document.getElementById('cyclingKmInput').value = '';
+  setTimeout(() => document.getElementById('cyclingKmInput').focus(), 200);
+}
+
+function closeCyclingModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('cyclingModal').classList.add('hidden');
+}
+
+function saveCyclingKm() {
+  const val = parseInt(document.getElementById('cyclingKmInput').value);
+  if (!val || val <= 0) return;
+  const goal = data.goals.find(g => g.id === 'cycling');
+  if (goal) goal.current = Math.min(goal.target, goal.current + val);
+  const ds = dateStr(today());
+  if (!data.dailyPlans[ds]) data.dailyPlans[ds] = [];
+  data.dailyPlans[ds].push({
+    id: Date.now().toString(36),
+    title: `骑行 ${val}km`, icon: '🚴', type: 'goal', done: true, time: '',
+  });
+  saveData();
+  closeCyclingModal();
+  renderTodayTab();
+  renderGoalsTab();
+  showToast(`已记录 ${val}km！海南骑行剩余 ${goal.target - goal.current}km`);
+}
+
+// ============================================================
+// 数据管理
+// ============================================================
+function exportData() {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `gap-planner-backup-${dateStr(today())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('数据已导出');
+}
+
+function resetData() {
+  if (confirm('确定要重置所有数据吗？此操作不可恢复。\n\n建议先导出备份。')) {
+    data = getDefaultData();
+    saveData();
+    switchTab('today');
+    renderTodayTab();
+    showToast('数据已重置');
+  }
+}
+
+// ============================================================
+// Toast
+// ============================================================
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.remove('hidden', 'toast');
+  void el.offsetWidth;
+  el.classList.add('toast');
+  setTimeout(() => el.classList.add('hidden'), 1800);
+}
+
+// ============================================================
+// PWA 安装
+// ============================================================
+let deferredPrompt = null;
+let installDismissed = false;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!installDismissed) {
+    document.getElementById('installBanner').classList.remove('hidden');
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.add('hidden');
+  showToast('安装成功！🎉');
+});
+
+function installApp() {
+  if (!deferredPrompt) {
+    // iOS 提示
+    showToast('请使用 Safari 的「分享 → 添加到主屏幕」');
+    return;
+  }
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(result => {
+    if (result.outcome === 'accepted') {
+      document.getElementById('installBanner').classList.add('hidden');
+    }
+    deferredPrompt = null;
+  });
+}
+
+function dismissInstall() {
+  document.getElementById('installBanner').classList.add('hidden');
+  installDismissed = true;
+}
+
+// ============================================================
+// Service Worker 注册
+// ============================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', { scope: './' })
+      .then(reg => console.log('[SW] 已注册:', reg.scope))
+      .catch(err => console.warn('[SW] 注册失败:', err));
+  });
+}
+
+// ============================================================
+// 键盘
+// ============================================================
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.ctrlKey && e.key === 'n') { e.preventDefault(); document.getElementById('customInput')?.focus(); }
+  if (e.ctrlKey && e.key === 'm') { e.preventDefault(); openSmartPlan(); }
+  if (e.key === '1') switchTab('today');
+  if (e.key === '2') switchTab('week');
+  if (e.key === '3') switchTab('goals');
+});
+
+// Enter 提交
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('customInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addCustomToViewedDay(); }
+  });
+  document.getElementById('dayDetailInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addToDayDetail(); }
+  });
+  document.getElementById('newTemplateInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addTemplate(); }
+  });
+  document.getElementById('cyclingKmInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); saveCyclingKm(); }
+  });
+});
+
+// ============================================================
+// 启动
+// ============================================================
+loadData();
+updateHeader();
+switchTab('today');
+
+console.log('🏖️ GAP 规划助手 PWA 就绪');
+console.log('  按 1/2/3 切换 Tab | Ctrl+N 添加活动 | Ctrl+M 智能规划');
+console.log('  支持离线使用 | 可安装到桌面');
+</script>
+
+</body>
+</html>
