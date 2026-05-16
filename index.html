@@ -280,6 +280,26 @@
   </div>
 </div>
 
+<!-- ===== 弹窗：快速添加时间选择 ===== -->
+<div id="quickTimeModal" class="fixed inset-0 bg-black/40 z-50 hidden flex items-end sm:items-center justify-center" onclick="cancelQuickTime(event)">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-5 pb-7 slide-in" style="padding-bottom: calc(1.75rem + var(--safe-bottom))" onclick="event.stopPropagation()">
+    <div class="w-10 h-1 bg-stone-300 rounded-full mx-auto mb-4 sm:hidden"></div>
+    <h3 class="text-base font-bold text-stone-800 mb-1" id="quickTimeTitle"></h3>
+    <p class="text-xs text-stone-400 mb-4">可选填写时间范围</p>
+    <div class="flex items-center gap-2 mb-4">
+      <input id="quickStartTime" type="time" class="flex-1 px-3 py-3 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400">
+      <span class="text-stone-300">至</span>
+      <input id="quickEndTime" type="time" class="flex-1 px-3 py-3 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400">
+    </div>
+    <div class="flex gap-2">
+      <button onclick="cancelQuickTime()" class="flex-1 px-4 py-3 text-sm border border-stone-200 rounded-xl active:bg-stone-50 transition">跳过</button>
+      <button onclick="confirmQuickTime()" class="flex-1 px-4 py-3 text-sm bg-emerald-500 text-white rounded-xl active:bg-emerald-600 transition font-medium">
+        <i class="fa fa-check mr-1"></i>添加
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-full bg-stone-800 text-white text-xs font-medium shadow-lg"></div>
 
@@ -296,8 +316,43 @@ const DEFAULT_TEMPLATES = [
   { title: '海南骑行训练', icon: '🚴', type: 'goal' },
   { title: '投简历 / 看职位', icon: '💼', type: 'career' },
   { title: '自主拉伸 / 瑜伽', icon: '🧘', type: 'health' },
+  { title: '煮苹果水', icon: '🍎', type: 'health' },
+  { title: '全身拉伸', icon: '🤸', type: 'health' },
   { title: '做饭', icon: '🍳', type: 'life' },
   { title: '整理房间', icon: '🏠', type: 'life' },
+];
+
+const DAILY_QUOTES = [
+  "我的人生 才不是用来演绎完美的…",
+  "减少内耗的最佳方法就是做自己，因为就算你对不起了别人，也没有对不起自己。",
+  "谁不稳 焦虑就传给谁…谁稳谁就赢",
+  "没有说出口的需求 都不要去满足…因为不会被珍惜，都是所谓的自我感动而已",
+  "想要不痛苦 真的就得狠下心来 彻底改变",
+  "别人好的评价不影响我，不好的评价也不影响我。我要关注的是客观的输入和自己主观的、真实的输出。",
+  "情绪是用来被表达的，而不是用来影响自己的",
+  "想做什么就做，别去怀疑",
+  "动作要干脆！",
+  "不复盘烂人烂事，直接买单离场",
+  "对于不可控之事，就尝试接受就好了…接受是需要切身的理解 才能接受的",
+  "所有关系是流动的（体验派",
+  "要有大杀四方的爽感 突然发现要有保护自己的意识；不是所有人都有资格看你纯真的那一面的",
+  "面对恶意的时候给回应还是挺耗能量的，所以还是要 不起心 不动念",
+  "被骂了没关系 咔咔干饭！",
+  "守住边界，我为什么要回应一个试图控制我的人",
+  "有问题解决问题就好了呀",
+  "讨厌漂亮女孩一个人在外吃饭 被周遭男性凝视的感觉，神经病吧…",
+  "信念对标目标，拉直心流通道",
+  "今年28了呢，好像是要改变了。有些事情可能真的要提前规划",
+  "听从自己的内心去做些事吧，更勇敢一点吧Aima~",
+  "其实环绕四周，每个人都过得很不容易呢",
+  "真正去做些切身实处的给予，而不是给些虚的情绪价值",
+  "面对完美主义的老板你必须做一块钢铁…md 谁tm想当钢铁啊",
+  "任何凝视都会让人感到不适，不论男女",
+  "已所不欲 勿施于人好吗？通过权利去践踏别人的自尊和心里的火苗 这真的是一个和谐的社会吗？",
+  "就算你对不起了别人，也没有对不起自己。就别人的看法内耗了你，但你自己没有内耗自己。",
+  "背靠clause去吵架，证明自己立场的合理性",
+  "真没想到有一天自己的热情居然会变成一个人严重的劣势",
+  "我始终觉得 一个人 不管是谁 待人处事 最起码的尊重要有",
 ];
 
 const TYPE_COLORS = {
@@ -312,6 +367,8 @@ function getDefaultData() {
     goals: [
       { id: 'cycling', title: '海南骑行剩余路程', current: 0, target: 600, unit: 'km', icon: '🚴', color: 'emerald' },
       { id: 'swim', title: '学会自由泳', current: 30, target: 100, unit: '%', icon: '🏊', color: 'sky' },
+      { id: 'makeup', title: '化妆技术训练', current: 0, target: 6, unit: '项', icon: '💄', color: 'pink' },
+      { id: 'stock', title: '了解股票市场', current: 0, target: 10, unit: '次学习', icon: '📈', color: 'amber' },
       { id: 'focus', title: '提升专注力', current: 10, target: 100, unit: '%', icon: '🧠', color: 'purple' },
     ],
     gymFocusLabels: { 2: '背部', 4: '核心', 6: '臀腿' }, // 周二/周四/周六
@@ -332,13 +389,19 @@ function loadData() {
       const parsed = JSON.parse(raw);
       data = Object.assign(getDefaultData(), parsed);
       data.goals = data.goals || getDefaultData().goals;
-      // 迁移：将旧版求职目标替换为专注力
+      // 迁移：将旧版求职目标替换为专注力；补充化妆/股票目标
       const hasJobGoal = data.goals.some(g => g.id === 'job');
       if (hasJobGoal) {
         data.goals = data.goals.filter(g => g.id !== 'job');
         if (!data.goals.some(g => g.id === 'focus')) {
           data.goals.push({ id: 'focus', title: '提升专注力', current: 10, target: 100, unit: '%', icon: '🧠', color: 'purple' });
         }
+      }
+      if (!data.goals.some(g => g.id === 'makeup')) {
+        data.goals.push({ id: 'makeup', title: '化妆技术训练', current: 0, target: 6, unit: '项', icon: '💄', color: 'pink' });
+      }
+      if (!data.goals.some(g => g.id === 'stock')) {
+        data.goals.push({ id: 'stock', title: '了解股票市场', current: 0, target: 10, unit: '次学习', icon: '📈', color: 'amber' });
       }
       data.templates = data.templates || [...DEFAULT_TEMPLATES];
       data.weekGymSchedules = data.weekGymSchedules || {};
@@ -385,6 +448,14 @@ function getGreeting() {
   if (h < 18) return '下午好 🌤️';
   if (h < 21) return '晚上好 🌆';
   return '早点休息 🌙';
+}
+
+function getQuoteOfDay() {
+  const ds = dateStr(today());
+  let hash = 0;
+  for (let i = 0; i < ds.length; i++) { hash = ((hash << 5) - hash) + ds.charCodeAt(i); hash |= 0; }
+  const idx = Math.abs(hash) % DAILY_QUOTES.length;
+  return DAILY_QUOTES[idx];
 }
 
 function getISOWeek(d) {
@@ -528,6 +599,17 @@ function renderTodayTab() {
   const plans = getPlans(d);
 
   let html = '';
+
+  // 每日推文卡片
+  html += `
+    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100 p-3 mb-3">
+      <div class="flex items-center gap-1.5 mb-1.5">
+        <span class="text-xs font-semibold text-purple-500">💬 今日推文</span>
+        <span class="text-[10px] text-purple-300">${formatMD(d)}</span>
+      </div>
+      <p class="text-sm text-stone-600 leading-relaxed italic">"${getQuoteOfDay()}"</p>
+    </div>`;
+
   const fixedEvents = [gym, swim].filter(Boolean);
 
   if (fixedEvents.length > 0) {
@@ -609,19 +691,42 @@ function shiftDay(dir) {
   renderTodayTab();
 }
 
+let pendingTemplateIdx = null;
+
 function quickAddTemplate(idx) {
   const t = data.templates[idx];
   if (!t) return;
+  pendingTemplateIdx = idx;
+  document.getElementById('quickTimeTitle').textContent = `${t.icon} ${t.title}`;
+  document.getElementById('quickStartTime').value = '';
+  document.getElementById('quickEndTime').value = '';
+  document.getElementById('quickTimeModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('quickStartTime').focus(), 200);
+}
+
+function confirmQuickTime() {
+  if (pendingTemplateIdx === null) return;
+  const t = data.templates[pendingTemplateIdx];
   const d = getViewedDate();
   const ds = dateStr(d);
+  const st = document.getElementById('quickStartTime').value;
+  const et = document.getElementById('quickEndTime').value;
   if (!data.dailyPlans[ds]) data.dailyPlans[ds] = [];
   data.dailyPlans[ds].push({
     id: Date.now().toString(36),
-    title: t.title, icon: t.icon, type: t.type || '', done: false, startTime: '', endTime: '',
+    title: t.title, icon: t.icon, type: t.type || '', done: false, startTime: st, endTime: et,
   });
   saveData();
+  document.getElementById('quickTimeModal').classList.add('hidden');
+  pendingTemplateIdx = null;
   renderTodayTab();
-  showToast(`已添加到${getRelativeLabel(d) || dayNameCN(d)}`);
+  showToast(`已添加到${getRelativeLabel(d) || dayNameCN(d)}${st ? ' ' + st : ''}`);
+}
+
+function cancelQuickTime(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('quickTimeModal').classList.add('hidden');
+  pendingTemplateIdx = null;
 }
 
 function addCustomToViewedDay() {
@@ -921,6 +1026,14 @@ function renderGoalsTab() {
           ${g.id === 'swim' ? `
             <button onclick="incrementSwim()" class="flex-1 px-3 py-2 text-xs bg-sky-50 text-sky-600 rounded-xl active:bg-sky-100 transition font-medium"><i class="fa fa-plus mr-1"></i>进度 +5%</button>
           ` : ''}
+          ${g.id === 'makeup' ? `
+            <button onclick="incrementMakeup()" class="flex-1 px-3 py-2 text-xs bg-pink-50 text-pink-600 rounded-xl active:bg-pink-100 transition font-medium"><i class="fa fa-plus mr-1"></i>练了一项</button>
+            <button onclick="quickAddByTitle('化妆练习','💄','skill')" class="px-3 py-2 text-xs bg-pink-50 text-pink-600 rounded-xl active:bg-pink-100 transition"><i class="fa fa-calendar-plus-o"></i></button>
+          ` : ''}
+          ${g.id === 'stock' ? `
+            <button onclick="incrementStock()" class="flex-1 px-3 py-2 text-xs bg-amber-50 text-amber-600 rounded-xl active:bg-amber-100 transition font-medium"><i class="fa fa-plus mr-1"></i>学了一次</button>
+            <button onclick="quickAddByTitle('看股票/学投资','📈','skill')" class="px-3 py-2 text-xs bg-amber-50 text-amber-600 rounded-xl active:bg-amber-100 transition"><i class="fa fa-calendar-plus-o"></i></button>
+          ` : ''}
           ${g.id === 'focus' ? `
             <button onclick="incrementFocus()" class="flex-1 px-3 py-2 text-xs bg-purple-50 text-purple-600 rounded-xl active:bg-purple-100 transition font-medium"><i class="fa fa-plus mr-1"></i>专注力 +5%</button>
           ` : ''}
@@ -947,6 +1060,16 @@ function incrementSwim() {
 function incrementFocus() {
   const g = data.goals.find(g => g.id === 'focus');
   if (g) { g.current = Math.min(g.target, g.current + 5); saveData(); renderGoalsTab(); showToast('专注力 +5%，继续保持！🧠'); }
+}
+
+function incrementMakeup() {
+  const g = data.goals.find(g => g.id === 'makeup');
+  if (g) { g.current = Math.min(g.target, g.current + 1); saveData(); renderGoalsTab(); showToast('化妆技术 +1，从底妆开始不着急 💄'); }
+}
+
+function incrementStock() {
+  const g = data.goals.find(g => g.id === 'stock');
+  if (g) { g.current = Math.min(g.target, g.current + 1); saveData(); renderGoalsTab(); showToast('股票学习 +1，慢慢来 📈'); }
 }
 
 function removeTemplate(idx) {
@@ -1219,6 +1342,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('cyclingKmInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); saveCyclingKm(); }
+  });
+  document.getElementById('quickStartTime').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); confirmQuickTime(); }
+  });
+  document.getElementById('quickEndTime').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); confirmQuickTime(); }
   });
 });
 
