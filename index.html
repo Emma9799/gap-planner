@@ -444,7 +444,8 @@ function getDefaultData() {
     gymFocusLabels: { 2: '背部', 4: '核心', 6: '臀腿' }, // 周二/周四/周六
     templates: [...DEFAULT_TEMPLATES],
     dailyNotes: {},
-    breathingLog: {}, // { '2026-05-17': [true, false, true, false] } 4组完成情况
+    breathingLog: {}, // { '2026-05-17': [true, false, true, false] }
+    makeupLog: {}, // { '2026-05-17': true } 每日化妆练习30分钟 4组完成情况
     expenses: {}, // { '2026-05-17': [{ id, amount, cat, note }] }
     wishlist: [
       { id: 'qz', title: '泉州·拍簪花', icon: '🌸', done: false, city: '泉州' },
@@ -503,6 +504,7 @@ function loadData() {
       data.swimRestDays = data.swimRestDays || [];
       data.dailyNotes = data.dailyNotes || {};
       data.breathingLog = data.breathingLog || {};
+      data.makeupLog = data.makeupLog || {};
       data.expenses = data.expenses || {};
       data.wishlist = data.wishlist || getDefaultData().wishlist;
       // 迁移旧心愿项补充 city 字段
@@ -733,6 +735,20 @@ function renderTodayTab() {
       ${breathLog.every(Boolean) ? '<p class="text-[10px] text-teal-500 mt-1.5 text-center">今日完成！👏</p>' : '<p class="text-[10px] text-teal-300 mt-1.5 text-center">点击完成每组打卡</p>'}
     </div>`;
 
+  // 化妆练习打卡
+  const makeupDone = (data.makeupLog || {})[ds] || false;
+  html += `
+    <div class="bg-gradient-to-r from-pink-50 to-rose-50 rounded-xl border border-pink-100 p-3 mb-3 flex items-center gap-3">
+      <span class="text-2xl">💄</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold text-pink-600">每日化妆练习</div>
+        <div class="text-[10px] text-pink-400">30分钟</div>
+      </div>
+      <button onclick="toggleMakeup('${ds}')" class="px-4 py-2 rounded-full text-xs font-bold transition ${makeupDone ? 'bg-pink-200 text-pink-700' : 'bg-pink-100 text-pink-500 hover:bg-pink-200'}">
+        ${makeupDone ? '✅ 已完成' : '☐ 打卡'}
+      </button>
+    </div>`;
+
   // 合并固定日程 + 自由活动，按时间排序
   const fixedEvents = [gym, swim].filter(Boolean);
   const timelineItems = [];
@@ -896,6 +912,13 @@ function toggleBreathingSet(ds, setIdx) {
   if (!data.breathingLog) data.breathingLog = {};
   if (!data.breathingLog[ds]) data.breathingLog[ds] = [false, false, false, false];
   data.breathingLog[ds][setIdx] = !data.breathingLog[ds][setIdx];
+  saveData();
+  renderTodayTab();
+}
+
+function toggleMakeup(ds) {
+  if (!data.makeupLog) data.makeupLog = {};
+  data.makeupLog[ds] = !data.makeupLog[ds];
   saveData();
   renderTodayTab();
 }
