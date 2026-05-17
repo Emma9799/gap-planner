@@ -166,15 +166,15 @@
 
     <!-- TAB 3: 目标 -->
     <section class="tab-panel" id="tab-goals">
-      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-3">目标追踪</p>
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-3">🧠 身心成长</p>
       <div class="space-y-3" id="goalsPanel"></div>
 
-      <!-- 心愿清单 -->
-      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">🗺️ 心愿清单</p>
+      <!-- 看世界旅行清单 -->
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">🗺️ 看世界</p>
       <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4">
-        <div class="space-y-2" id="wishlistPanel"></div>
+        <div id="travelPanel"></div>
         <div class="flex gap-2 mt-3">
-          <input id="newWishInput" type="text" placeholder="新心愿..."
+          <input id="newWishInput" type="text" placeholder="新目的地·想做的事，如：大理·环洱海"
             class="flex-1 px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400">
           <button onclick="addWish()" class="px-3 py-2 bg-stone-700 text-white text-sm rounded-xl active:bg-stone-800 transition font-medium flex-shrink-0">
             <i class="fa fa-plus"></i>
@@ -433,14 +433,21 @@ function getDefaultData() {
     gymFocusLabels: { 2: '背部', 4: '核心', 6: '臀腿' }, // 周二/周四/周六
     templates: [...DEFAULT_TEMPLATES],
     dailyNotes: {},
+    breathingLog: {}, // { '2026-05-17': [true, false, true, false] } 4组完成情况
     wishlist: [
-      { id: 'maclehose', title: '走完麦理浩径', icon: '⛰️', done: false },
-      { id: 'angkong', title: '柬埔寨吴哥窟', icon: '🛕', done: false },
-      { id: 'kyoto', title: '京都清水寺', icon: '🍁', done: false },
-      { id: 'taipei', title: '去台北', icon: '🏙️', done: false },
-      { id: 'jeju', title: '济州岛骑行', icon: '🚲', done: false },
-      { id: 'nanjiang', title: '带妈妈去南疆', icon: '🏔️', done: false },
-      { id: 'aus', title: '澳洲参加妹毕业典礼', icon: '🎓', done: false },
+      { id: 'qz', title: '泉州·拍簪花', icon: '🌸', done: false, city: '泉州' },
+      { id: 'tp1', title: '阳明山徒步', icon: '⛰️', done: false, city: '台北' },
+      { id: 'tp2', title: '台北故宫', icon: '🏛️', done: false, city: '台北' },
+      { id: 'tp3', title: '台北流行音乐厅', icon: '🎵', done: false, city: '台北' },
+      { id: 'jdz', title: '景德镇·看陶瓷', icon: '🏺', done: false, city: '景德镇' },
+      { id: 'xj1', title: '恰西草原', icon: '🌿', done: false, city: '新疆' },
+      { id: 'xj2', title: '库尔德宁', icon: '🏔️', done: false, city: '新疆' },
+      { id: 'xj3', title: '赛里木湖', icon: '💧', done: false, city: '新疆' },
+      { id: 'xj4', title: '白沙湖', icon: '🏝️', done: false, city: '新疆' },
+      { id: 'hk', title: '麦理浩径6-10段', icon: '🥾', done: false, city: '香港' },
+      { id: 'xianli', title: '暹粒·吴哥窟', icon: '🛕', done: false, city: '暹粒' },
+      { id: 'kyoto2', title: '京都·看枫叶', icon: '🍁', done: false, city: '京都' },
+      { id: 'aus2', title: '悉尼·妹妹毕业典礼', icon: '🎓', done: false, city: '澳洲' },
     ],
     weatherGood: true,
     viewedDayOffset: 0,
@@ -483,7 +490,10 @@ function loadData() {
       data.dailyPlans = data.dailyPlans || {};
       data.swimRestDays = data.swimRestDays || [];
       data.dailyNotes = data.dailyNotes || {};
+      data.breathingLog = data.breathingLog || {};
       data.wishlist = data.wishlist || getDefaultData().wishlist;
+      // 迁移旧心愿项补充 city 字段
+      data.wishlist.forEach(w => { if (!w.city) w.city = '其他'; });
       data.gymFocusLabels = data.gymFocusLabels || { 2: '背部', 4: '核心', 6: '臀腿' };
     }
   } catch (e) {
@@ -692,6 +702,24 @@ function renderTodayTab() {
       <p class="text-sm text-stone-600 leading-relaxed italic">"${getQuoteOfDay()}"</p>
     </div>`;
 
+  // 死虫式呼吸打卡
+  const breathLog = (data.breathingLog || {})[ds] || [false, false, false, false];
+  html += `
+    <div class="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl border border-teal-100 p-3 mb-3">
+      <div class="flex items-center gap-1.5 mb-2">
+        <span class="text-xs font-semibold text-teal-600">🫁 死虫式呼吸</span>
+        <span class="text-[10px] text-teal-400">4组 × 4次 × 循序至40呼吸</span>
+      </div>
+      <div class="flex gap-2">
+        ${[0,1,2,3].map(i => `
+          <button onclick="toggleBreathingSet('${ds}',${i})" class="flex-1 py-2 rounded-lg text-xs font-medium transition ${breathLog[i] ? 'bg-teal-200 text-teal-700' : 'bg-white/60 text-teal-400 hover:bg-teal-100'} border ${breathLog[i] ? 'border-teal-300' : 'border-teal-200'}">
+            ${breathLog[i] ? '✅' : '☐'} 第${i+1}组
+          </button>
+        `).join('')}
+      </div>
+      ${breathLog.every(Boolean) ? '<p class="text-[10px] text-teal-500 mt-1.5 text-center">今日完成！👏</p>' : '<p class="text-[10px] text-teal-300 mt-1.5 text-center">点击完成每组打卡</p>'}
+    </div>`;
+
   const fixedEvents = [gym, swim].filter(Boolean);
 
   if (fixedEvents.length > 0) {
@@ -841,6 +869,14 @@ function toggleSwimRest(ds) {
   const idx = data.swimRestDays.indexOf(ds);
   if (idx >= 0) data.swimRestDays.splice(idx, 1);
   else data.swimRestDays.push(ds);
+  saveData();
+  renderTodayTab();
+}
+
+function toggleBreathingSet(ds, setIdx) {
+  if (!data.breathingLog) data.breathingLog = {};
+  if (!data.breathingLog[ds]) data.breathingLog[ds] = [false, false, false, false];
+  data.breathingLog[ds][setIdx] = !data.breathingLog[ds][setIdx];
   saveData();
   renderTodayTab();
 }
@@ -1162,18 +1198,38 @@ function renderGoalsTab() {
   });
   document.getElementById('templateManageList').innerHTML = th || '<span class="text-xs text-stone-300">暂无自定义模板</span>';
 
-  // 渲染心愿清单
+  // 渲染旅行清单（按城市分组）
   const wl = data.wishlist || [];
-  let wh = '';
-  wl.forEach((w, i) => {
-    wh += `
-      <div class="flex items-center gap-2 px-3 py-2 rounded-lg ${w.done ? 'bg-emerald-50' : 'bg-stone-50'} border ${w.done ? 'border-emerald-100' : 'border-stone-100'} text-sm group">
-        <span class="text-lg cursor-pointer" onclick="toggleWish(${i})">${w.done ? '✅' : w.icon}</span>
-        <span class="flex-1 ${w.done ? 'line-through text-stone-400' : 'text-stone-700'}">${w.title}</span>
-        <button onclick="deleteWish(${i})" class="opacity-0 group-hover:opacity-100 text-stone-400 active:text-red-500 transition"><i class="fa fa-times"></i></button>
+  const cities = {};
+  wl.forEach(w => {
+    const city = w.city || '其他';
+    if (!cities[city]) cities[city] = [];
+    cities[city].push(w);
+  });
+  let th2 = '';
+  Object.keys(cities).forEach(city => {
+    const items = cities[city];
+    const doneCount = items.filter(w => w.done).length;
+    th2 += `
+      <div class="mb-3 last:mb-0">
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span class="text-xs font-semibold text-stone-600">${city}</span>
+          <span class="text-[10px] text-stone-300">${doneCount}/${items.length}</span>
+        </div>
+        <div class="space-y-1">
+          ${items.map((w, i) => {
+            const globalIdx = wl.indexOf(w);
+            return `
+            <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${w.done ? 'bg-emerald-50' : 'bg-stone-50'} text-sm group">
+              <span class="cursor-pointer flex-shrink-0" onclick="toggleWish(${globalIdx})">${w.done ? '✅' : w.icon}</span>
+              <span class="flex-1 text-xs ${w.done ? 'line-through text-stone-400' : 'text-stone-600'}">${w.title}</span>
+              <button onclick="deleteWish(${globalIdx})" class="opacity-0 group-hover:opacity-100 text-stone-400 active:text-red-500 transition flex-shrink-0"><i class="fa fa-times text-[10px]"></i></button>
+            </div>`;
+          }).join('')}
+        </div>
       </div>`;
   });
-  document.getElementById('wishlistPanel').innerHTML = wh || '<p class="text-xs text-stone-300 text-center py-3">添加你的心愿 ✨</p>';
+  document.getElementById('travelPanel').innerHTML = th2 || '<p class="text-xs text-stone-300 text-center py-3">添加你想去的地方 ✈️</p>';
 }
 
 function incrementSwim() {
@@ -1202,15 +1258,21 @@ function addWish() {
   const input = document.getElementById('newWishInput');
   const raw = input.value.trim();
   if (!raw) return;
-  const match = raw.match(/^(\p{Emoji_Presentation}|\p{Emoji}️?)\s*(.+)/u);
-  const icon = match ? match[1] : '🌟';
-  const title = match ? match[2] : raw;
+  // 支持格式: "城市·活动" 或 "emoji 城市·活动"
+  let icon = '🌟';
+  let city = '';
+  let title = raw;
+  const emojiMatch = raw.match(/^(\p{Emoji_Presentation}|\p{Emoji}️?)\s*(.+)/u);
+  if (emojiMatch) { icon = emojiMatch[1]; title = emojiMatch[2]; }
+  const parts = title.split('·');
+  if (parts.length >= 2) { city = parts[0].trim(); title = parts.slice(1).join('·').trim(); }
+  else { city = title; title = ''; }
   if (!data.wishlist) data.wishlist = [];
-  data.wishlist.push({ id: Date.now().toString(36), title, icon, done: false });
+  data.wishlist.push({ id: Date.now().toString(36), title: title || raw, icon, done: false, city: city || '其他' });
   input.value = '';
   saveData();
   renderGoalsTab();
-  showToast('心愿已添加 ✨');
+  showToast('目的地已添加 ✈️');
 }
 
 function incrementFocus() {
