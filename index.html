@@ -182,6 +182,40 @@
       <p class="text-xs text-stone-300 text-center mt-2">数据仅存储在浏览器本地</p>
     </section>
 
+    <!-- TAB 3: 记账 -->
+    <section class="tab-panel" id="tab-expense">
+      <!-- 本周开销统计 -->
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-2">📊 本周开销比率</p>
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4 mb-3" id="weeklyExpenseStats">
+        <p class="text-xs text-stone-300 text-center py-3">加载中...</p>
+      </div>
+
+      <!-- 今日开销 -->
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide">💸 今日开销</p>
+        <span class="text-xs font-bold text-rose-500" id="todayExpenseTotal">¥0</span>
+      </div>
+      <div class="space-y-1.5 mb-3" id="todayExpenseList">
+        <p class="text-xs text-stone-300 text-center py-3">暂无记录</p>
+      </div>
+
+      <!-- 快速添加开销 -->
+      <div class="flex gap-2">
+        <input id="expenseAmount" type="number" inputmode="decimal" placeholder="金额" step="0.01" min="0"
+          class="w-20 px-3 py-2.5 text-sm bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400">
+        <select id="expenseCat" class="flex-1 px-2 py-2.5 text-sm bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400">
+          <option value="餐饮">🍜 餐饮</option><option value="交通">🚇 交通</option><option value="购物">🛍️ 购物</option>
+          <option value="娱乐">🎬 娱乐</option><option value="护肤">💆 护肤</option><option value="健身">🏋️ 健身</option>
+          <option value="学习">📚 学习</option><option value="其他">📌 其他</option>
+        </select>
+        <button onclick="addExpense()" class="px-4 py-2.5 bg-rose-500 text-white text-sm rounded-xl active:bg-rose-600 transition font-medium flex-shrink-0">
+          <i class="fa fa-plus"></i>
+        </button>
+      </div>
+      <input id="expenseNote" type="text" placeholder="备注（可选）"
+        class="w-full mt-2 px-3 py-2.5 text-sm bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400">
+    </section>
+
   </main>
 
   <!-- ===== 底部导航 ===== -->
@@ -193,6 +227,10 @@
     <button onclick="switchTab('goals')" class="tab-btn flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition" data-tab="goals">
       <i class="fa fa-globe text-lg"></i>
       <span class="text-[10px] font-medium">看世界</span>
+    </button>
+    <button onclick="switchTab('expense')" class="tab-btn flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition" data-tab="expense">
+      <i class="fa fa-cny text-lg"></i>
+      <span class="text-[10px] font-medium">记账</span>
     </button>
   </nav>
 
@@ -407,6 +445,7 @@ function getDefaultData() {
     templates: [...DEFAULT_TEMPLATES],
     dailyNotes: {},
     breathingLog: {}, // { '2026-05-17': [true, false, true, false] } 4组完成情况
+    expenses: {}, // { '2026-05-17': [{ id, amount, cat, note }] }
     wishlist: [
       { id: 'qz', title: '泉州·拍簪花', icon: '🌸', done: false, city: '泉州' },
       { id: 'tp1', title: '阳明山徒步', icon: '⛰️', done: false, city: '台北' },
@@ -464,6 +503,7 @@ function loadData() {
       data.swimRestDays = data.swimRestDays || [];
       data.dailyNotes = data.dailyNotes || {};
       data.breathingLog = data.breathingLog || {};
+      data.expenses = data.expenses || {};
       data.wishlist = data.wishlist || getDefaultData().wishlist;
       // 迁移旧心愿项补充 city 字段
       data.wishlist.forEach(w => { if (!w.city) w.city = '其他'; });
@@ -639,6 +679,7 @@ function switchTab(name) {
 
   if (name === 'today') renderTodayTab();
   else if (name === 'goals') { renderGoalsTab(); renderWeeklyStats(); }
+  else if (name === 'expense') renderExpenseTab();
 }
 
 // ============================================================
@@ -1536,6 +1577,96 @@ function typeLabel(p) {
 }
 
 // ============================================================
+// 记账
+// ============================================================
+const EXPENSE_CATS = ['餐饮','交通','购物','娱乐','护肤','健身','学习','其他'];
+const EXPENSE_ICONS = { '餐饮':'🍜','交通':'🚇','购物':'🛍️','娱乐':'🎬','护肤':'💆','健身':'🏋️','学习':'📚','其他':'📌' };
+
+function renderExpenseTab() {
+  const ds = dateStr(today());
+  const expenses = (data.expenses || {})[ds] || [];
+  const total = expenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+  document.getElementById('todayExpenseTotal').textContent = `¥${total.toFixed(1)}`;
+  let h = '';
+  if (expenses.length === 0) {
+    h = '<p class="text-xs text-stone-300 text-center py-3">今天还没记</p>';
+  } else {
+    expenses.forEach((e, i) => {
+      h += `
+        <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-stone-100 text-sm group">
+          <span>${EXPENSE_ICONS[e.cat] || '📌'}</span>
+          <span class="text-xs text-stone-500 flex-shrink-0">${e.cat}</span>
+          <span class="flex-1 text-xs text-stone-400 truncate">${e.note || ''}</span>
+          <span class="font-medium text-stone-700">¥${parseFloat(e.amount).toFixed(1)}</span>
+          <button onclick="deleteExpense('${ds}',${i})" class="opacity-0 group-hover:opacity-100 text-stone-400 active:text-red-500 transition flex-shrink-0"><i class="fa fa-times text-[10px]"></i></button>
+        </div>`;
+    });
+  }
+  document.getElementById('todayExpenseList').innerHTML = h;
+  renderWeeklyExpenseStats();
+}
+
+function renderWeeklyExpenseStats() {
+  const monday = getMondayOfWeek(0);
+  const catTotals = {};
+  let grandTotal = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i);
+    const expenses = (data.expenses || {})[dateStr(d)] || [];
+    expenses.forEach(e => {
+      const amt = parseFloat(e.amount || 0);
+      catTotals[e.cat] = (catTotals[e.cat] || 0) + amt;
+      grandTotal += amt;
+    });
+  }
+  let h = '';
+  if (grandTotal === 0) {
+    h = '<p class="text-xs text-stone-300 text-center py-2">本周暂无开销记录</p>';
+  } else {
+    const sorted = Object.entries(catTotals).sort((a,b) => b[1] - a[1]);
+    const colors = ['bg-rose-500','bg-amber-500','bg-purple-500','bg-sky-500','bg-emerald-500','bg-teal-500','bg-pink-500','bg-stone-400'];
+    sorted.forEach(([cat, amt], i) => {
+      const pct = Math.round((amt / grandTotal) * 100);
+      h += `
+        <div class="flex items-center gap-2 text-xs mb-1.5">
+          <span class="w-12 text-stone-500 flex-shrink-0">${EXPENSE_ICONS[cat]||''} ${cat}</span>
+          <div class="flex-1 h-2 bg-stone-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full ${colors[i % colors.length]}" style="width:${pct}%"></div>
+          </div>
+          <span class="text-stone-400 flex-shrink-0 w-14 text-right">¥${amt.toFixed(0)}</span>
+          <span class="text-[10px] text-stone-300 flex-shrink-0 w-8">${pct}%</span>
+        </div>`;
+    });
+    h += `<p class="text-[10px] text-stone-300 mt-2">本周总开销 <span class="font-bold text-rose-400">¥${grandTotal.toFixed(1)}</span></p>`;
+  }
+  document.getElementById('weeklyExpenseStats').innerHTML = h;
+}
+
+function addExpense() {
+  const amount = parseFloat(document.getElementById('expenseAmount').value);
+  if (!amount || amount <= 0) return;
+  const cat = document.getElementById('expenseCat').value;
+  const note = document.getElementById('expenseNote').value.trim();
+  const ds = dateStr(today());
+  if (!data.expenses) data.expenses = {};
+  if (!data.expenses[ds]) data.expenses[ds] = [];
+  data.expenses[ds].push({ id: Date.now().toString(36), amount, cat, note });
+  document.getElementById('expenseAmount').value = '';
+  document.getElementById('expenseNote').value = '';
+  saveData();
+  renderExpenseTab();
+}
+
+function deleteExpense(ds, idx) {
+  if (data.expenses && data.expenses[ds]) {
+    data.expenses[ds].splice(idx, 1);
+    if (data.expenses[ds].length === 0) delete data.expenses[ds];
+    saveData();
+    renderExpenseTab();
+  }
+}
+
+// ============================================================
 // PWA 安装
 // ============================================================
 let deferredPrompt = null;
@@ -1595,6 +1726,7 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.key === 'm') { e.preventDefault(); openSmartPlan(); }
   if (e.key === '1') switchTab('today');
   if (e.key === '2') switchTab('goals');
+  if (e.key === '3') switchTab('expense');
 });
 
 // Enter 提交
@@ -1610,6 +1742,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('newWishInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); addWish(); }
+  });
+  document.getElementById('expenseAmount').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addExpense(); }
+  });
+  document.getElementById('expenseNote').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addExpense(); }
   });
   document.getElementById('cyclingKmInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); saveCyclingKm(); }
@@ -1648,7 +1786,7 @@ switchTab('today');
 initWeather();
 
 console.log('🏖️ GAP 规划助手 PWA 就绪');
-console.log('  按 1/2 切换 Tab | Ctrl+N 添加活动 | Ctrl+M 智能规划');
+console.log('  按 1/2/3 切换 Tab | Ctrl+N 添加活动 | Ctrl+M 智能规划');
 console.log('  支持离线使用 | 可安装到桌面');
 </script>
 
