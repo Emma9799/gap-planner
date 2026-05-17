@@ -580,7 +580,7 @@ function getGymEvent(d) {
   return { title: `健身房私教·${focus}`, icon: '🏋️', time: '12:00', endTime: '13:00', color: 'rose', fixed: true };
 }
 
-const SWIM_EVENT = { title: '小区泳池·自由泳练习', icon: '🏊', time: '19:00', endTime: '20:00', color: 'sky', fixed: true, rest: false };
+const SWIM_EVENT = { title: '小区泳池·自由泳练习', icon: '🏊', time: '20:30', endTime: '21:30', color: 'sky', fixed: true, rest: false };
 
 function getSwimEvent(d) {
   const ds = dateStr(d);
@@ -718,59 +718,65 @@ function renderTodayTab() {
       ${breathLog.every(Boolean) ? '<p class="text-[10px] text-teal-500 mt-1.5 text-center">今日完成！👏</p>' : '<p class="text-[10px] text-teal-300 mt-1.5 text-center">点击完成每组打卡</p>'}
     </div>`;
 
+  // 合并固定日程 + 自由活动，按时间排序
   const fixedEvents = [gym, swim].filter(Boolean);
+  const timelineItems = [];
+  // 固定日程
+  fixedEvents.forEach(e => {
+    timelineItems.push({ type: 'fixed', title: e.title, icon: e.icon, time: e.time, endTime: e.endTime, color: e.color, rest: e.rest || false, isGym: e === gym, isSwim: e === swim, sortTime: e.time });
+  });
+  // 自由活动
+  plans.forEach((p, i) => {
+    timelineItems.push({ type: 'plan', planIndex: i, title: p.title, icon: p.icon, ptype: p.type, done: p.done, startTime: p.startTime || '', endTime: p.endTime || '', sortTime: p.startTime || '99:99' });
+  });
+  // 排序
+  timelineItems.sort((a, b) => a.sortTime.localeCompare(b.sortTime));
 
-  if (fixedEvents.length > 0) {
-    html += '<div class="space-y-2 mb-3">';
-    fixedEvents.forEach(e => {
-      if (e.rest) {
-        html += `
-          <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm">
-            <span class="text-lg">🏊</span>
-            <div class="flex-1"><div class="font-medium text-slate-400 line-through">${e.title}</div></div>
-            <span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">今日休息</span>
-          </div>`;
-      } else {
-        html += `
-          <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-${e.color}-50 border border-${e.color}-200 text-sm group">
-            <span class="text-lg">${e.icon}</span>
-            <div class="flex-1">
-              <div class="font-medium text-stone-700">${e.title}</div>
-              <div class="text-xs text-stone-400">${e.time} - ${e.endTime}</div>
-            </div>
-            ${e === gym ? '<span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-600">本周课表</span>' : ''}
-            ${e === swim ? `<button onclick="toggleSwimRest('${ds}')" class="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-400 active:bg-stone-200 transition" title="标记为休息日">休息</button>` : ''}
-          </div>`;
-      }
-    });
-    html += '</div>';
-  }
-
-  if (plans.length === 0) {
+  if (timelineItems.length === 0) {
     html += `
       <div class="text-center py-6 text-stone-300">
         <p class="text-3xl mb-2">📋</p>
-        <p class="text-sm">${isToday(d) ? '今天还没安排自由活动' : '暂无安排'}</p>
+        <p class="text-sm">${isToday(d) ? '今天还没安排' : '暂无安排'}</p>
         <p class="text-xs mt-1">点击下方按钮或输入框添加</p>
         ${data.weatherGood ? '<p class="text-xs text-emerald-400 mt-1">☀️ 天气不错，适合出门</p>' : ''}
       </div>`;
   } else {
     html += '<div class="space-y-1.5">';
-    plans.forEach((p, i) => {
-      const tc = TYPE_COLORS[p.type] || 'stone';
-      html += `
-        <div class="slide-in flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-stone-100 text-sm group active:bg-stone-50 transition">
-          <span class="text-lg cursor-pointer flex-shrink-0" onclick="toggleDone('${ds}',${i})">${p.done ? '✅' : (p.icon || '📌')}</span>
-          <div class="flex-1 min-w-0 ${p.done ? 'line-through opacity-40' : ''}">
-            <div class="font-medium text-stone-700 truncate">${p.title}</div>
-            ${p.startTime ? `<div class="text-xs text-stone-400">${p.startTime}${p.endTime ? ' - ' + p.endTime : ''}</div>` : ''}
-          </div>
-          ${p.type ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-${tc}-100 text-${tc}-600 hidden sm:inline flex-shrink-0">${p.type==='outdoor'?'户外':p.type==='career'?'求职':p.type==='skill'?'技能':p.type==='health'?'健康':p.type==='goal'?'目标':'生活'}</span>` : ''}
-          ${p.startTime ? `<span class="text-[10px] text-stone-400 flex-shrink-0">${p.startTime}${p.endTime ? ' - '+p.endTime : ''}</span>` : ''}
-          <button onclick="deletePlan('${ds}',${i})" class="opacity-0 group-hover:opacity-100 text-stone-400 active:text-red-500 transition px-1 flex-shrink-0">
-            <i class="fa fa-times"></i>
-          </button>
-        </div>`;
+    timelineItems.forEach(item => {
+      if (item.type === 'fixed') {
+        if (item.rest) {
+          html += `
+            <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm">
+              <span class="text-lg">🏊</span>
+              <div class="flex-1"><div class="font-medium text-slate-400 line-through">${item.title}</div></div>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">今日休息</span>
+            </div>`;
+        } else {
+          html += `
+            <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-${item.color}-50 border border-${item.color}-200 text-sm group">
+              <span class="text-lg">${item.icon}</span>
+              <div class="flex-1">
+                <div class="font-medium text-stone-700">${item.title}</div>
+                <div class="text-xs text-stone-400">${item.time} - ${item.endTime}</div>
+              </div>
+              ${item.isGym ? '<span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-600">本周课表</span>' : ''}
+              ${item.isSwim ? `<button onclick="toggleSwimRest('${ds}')" class="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-400 active:bg-stone-200 transition" title="标记为休息日">休息</button>` : ''}
+            </div>`;
+        }
+      } else {
+        const tc = TYPE_COLORS[item.ptype] || 'stone';
+        html += `
+          <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-stone-100 text-sm group active:bg-stone-50 transition">
+            <span class="text-lg cursor-pointer flex-shrink-0" onclick="toggleDone('${ds}',${item.planIndex})">${item.done ? '✅' : (item.icon || '📌')}</span>
+            <div class="flex-1 min-w-0 ${item.done ? 'line-through opacity-40' : ''}">
+              <div class="font-medium text-stone-700 truncate">${item.title}</div>
+              ${item.startTime ? `<div class="text-xs text-stone-400">${item.startTime}${item.endTime ? ' - ' + item.endTime : ''}</div>` : ''}
+            </div>
+            <button onclick="deletePlan('${ds}',${item.planIndex})" class="opacity-0 group-hover:opacity-100 text-stone-400 active:text-red-500 transition px-1 flex-shrink-0">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>`;
+      }
     });
     html += '</div>';
   }
