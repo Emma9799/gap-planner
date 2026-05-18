@@ -469,7 +469,8 @@ function getDefaultData() {
     dailyNotes: {},
     breathingLog: {}, // { '2026-05-17': [true, false, true, false] }
     makeupLog: {}, // { '2026-05-17': true }
-    wakeupLog: {}, // { '2026-05-17': '07:30' } 每日化妆练习30分钟 4组完成情况
+    wakeupLog: {}, // { '2026-05-17': '07:30' }
+    supplementLog: {}, // { '2026-05-17': true } 每日保健品 每日化妆练习30分钟 4组完成情况
     expenses: {}, // { '2026-05-17': [{ id, amount, cat, note }] }
     wishlist: [
       { id: 'qz', title: '泉州·拍簪花', icon: '🌸', done: false, city: '泉州' },
@@ -530,6 +531,7 @@ function loadData() {
       data.breathingLog = data.breathingLog || {};
       data.makeupLog = data.makeupLog || {};
       data.wakeupLog = data.wakeupLog || {};
+      data.supplementLog = data.supplementLog || {};
       data.expenses = data.expenses || {};
       data.wishlist = data.wishlist || getDefaultData().wishlist;
       // 迁移旧心愿项补充 city 字段
@@ -774,6 +776,20 @@ function renderTodayTab() {
       </button>
     </div>`;
 
+  // 保健品打卡
+  const suppDone = (data.supplementLog || {})[ds] || false;
+  html += `
+    <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100 p-3 mb-3 flex items-center gap-3">
+      <span class="text-2xl">💊</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold text-green-600">今日保健品</div>
+        <div class="text-[10px] text-green-400">记得吃</div>
+      </div>
+      <button onclick="toggleSupplement('${ds}')" class="px-4 py-2 rounded-full text-xs font-bold transition ${suppDone ? 'bg-green-200 text-green-700' : 'bg-green-100 text-green-500 hover:bg-green-200'}">
+        ${suppDone ? '✅ 已吃' : '☐ 打卡'}
+      </button>
+    </div>`;
+
   // 合并固定日程 + 自由活动，按时间排序
   const fixedEvents = [gym, swim].filter(Boolean);
   const timelineItems = [];
@@ -950,6 +966,13 @@ function toggleBreathingSet(ds, setIdx) {
 function toggleMakeup(ds) {
   if (!data.makeupLog) data.makeupLog = {};
   data.makeupLog[ds] = !data.makeupLog[ds];
+  saveData();
+  renderTodayTab();
+}
+
+function toggleSupplement(ds) {
+  if (!data.supplementLog) data.supplementLog = {};
+  data.supplementLog[ds] = !data.supplementLog[ds];
   saveData();
   renderTodayTab();
 }
@@ -1667,7 +1690,7 @@ function generateWeeklySummary() {
 
   let totalActivities = 0;
   const typeCounts = {};
-  let makeupDays = 0, breathDays = 0, swimDays = 0, gymDays = 0;
+  let makeupDays = 0, breathDays = 0, swimDays = 0, gymDays = 0, suppDays = 0;
   let weekExpenseTotal = 0;
   const expenseCatTotals = {};
 
@@ -1694,6 +1717,7 @@ function generateWeeklySummary() {
     const breathLog = (data.breathingLog || {})[ds];
     if (breathLog && breathLog.every(Boolean)) breathDays++;
     if ((data.makeupLog || {})[ds]) makeupDays++;
+    if ((data.supplementLog || {})[ds]) suppDays++;
     // 开销
     const expenses = (data.expenses || {})[ds] || [];
     expenses.forEach(e => {
@@ -1730,6 +1754,9 @@ function generateWeeklySummary() {
   // 化妆
   if (makeupDays < 3) suggestions.push('化妆练习天数偏少，下周至少安排3次30分钟');
   else if (makeupDays >= 4) suggestions.push('化妆练习坚持得很好！下周可以尝试全妆练习');
+  // 保健品
+  if (suppDays < 5) suggestions.push('保健品有' + (7-suppDays) + '天没吃，下周每天记得吃');
+  if (suppDays >= 6) suggestions.push('保健品坚持得很好！');
   // 户外
   if ((typeCounts['🚴 户外'] || 0) < 2) suggestions.push('户外活动偏少，天气好时可以骑车或户外看书');
   // 游泳
@@ -1776,7 +1803,7 @@ function generateWeeklySummary() {
   h += `
     <div class="mb-3">
       <p class="text-[10px] text-stone-400 mb-1.5">📈 本周数据</p>
-      <p class="text-xs text-stone-500">活动 ${totalActivities} 项 · 小记 ${notesArray.length} 天 · 呼吸 ${breathDays}/7 · 化妆 ${makeupDays}/7 · 游泳 ${swimDays}/7${weekExpenseTotal > 0 ? ` · 开销 ¥${weekExpenseTotal.toFixed(0)}` : ''}</p>
+      <p class="text-xs text-stone-500">活动 ${totalActivities} 项 · 小记 ${notesArray.length} 天 · 呼吸 ${breathDays}/7 · 化妆 ${makeupDays}/7 · 保健品 ${suppDays}/7${weekExpenseTotal > 0 ? ` · 开销 ¥${weekExpenseTotal.toFixed(0)}` : ''}</p>
     </div>`;
   // 建议
   h += `
