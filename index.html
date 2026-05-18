@@ -168,6 +168,13 @@
         </div>
       </div>
 
+      <!-- 行前准备清单 -->
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">🧳 行前准备</p>
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4">
+        <p class="text-[10px] text-stone-400 mb-2">出发前逐一勾选，不怕遗漏</p>
+        <div class="space-y-1" id="travelPrepPanel"></div>
+      </div>
+
       <!-- 本周活动统计 -->
       <div class="flex items-center justify-between mb-2">
         <button onclick="shiftSummaryWeek(-1)" class="w-7 h-7 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-400 active:bg-stone-100 transition">
@@ -515,6 +522,17 @@ function getDefaultData() {
       { id: 'kyoto2', title: '京都·看枫叶', icon: '🍁', done: false, city: '京都' },
       { id: 'aus2', title: '悉尼·妹妹毕业典礼', icon: '🎓', done: false, city: '澳洲' },
     ],
+    travelPrep: [
+      { id: 'tp_flight', title: '订机票/火车票', icon: '✈️', done: false },
+      { id: 'tp_hotel', title: '订住宿', icon: '🏨', done: false },
+      { id: 'tp_weather', title: '查当地天气', icon: '🌤️', done: false },
+      { id: 'tp_clothes', title: '准备衣物', icon: '👗', done: false },
+      { id: 'tp_money', title: '换汇/准备支付方式', icon: '💳', done: false },
+      { id: 'tp_map', title: '下载离线地图', icon: '🗺️', done: false },
+      { id: 'tp_plan', title: '查攻略/排行程', icon: '📋', done: false },
+      { id: 'tp_meds', title: '准备药物/护肤品', icon: '💊', done: false },
+      { id: 'tp_pack', title: '打包行李', icon: '🧳', done: false },
+    ],
     weatherGood: true,
     viewedDayOffset: 0,
     viewedWeekOffset: 0,
@@ -564,6 +582,7 @@ function loadData() {
       data.supplementLog = data.supplementLog || {};
       data.footbathLog = data.footbathLog || {};
       data.appleLog = data.appleLog || {};
+      data.travelPrep = data.travelPrep || getDefaultData().travelPrep;
       data.expenses = data.expenses || {};
       data.wishlist = data.wishlist || getDefaultData().wishlist;
       // 迁移旧心愿项补充 city 字段
@@ -796,15 +815,22 @@ function renderTodayTab() {
       <div class="flex items-center gap-1.5 mb-2">
         <span class="text-xs font-semibold text-teal-600">🫁 死虫式呼吸</span>
         <span class="text-[10px] text-teal-400">4组 × 4次 × 循序至40呼吸</span>
+        ${breathAllDone ? '<span class="text-[10px] text-teal-500 font-bold ml-auto">全部完成 👏</span>' : ''}
       </div>
-      <div class="flex gap-2">
-        ${[0,1,2,3].map(i => `
-          <button onclick="toggleBreathingSet('${ds}',${i})" class="flex-1 py-2 rounded-lg text-xs font-medium transition ${breathLog[i] ? 'bg-teal-200 text-teal-700' : 'bg-white/60 text-teal-400 hover:bg-teal-100'} border ${breathLog[i] ? 'border-teal-300' : 'border-teal-200'}">
-            ${breathLog[i] ? '✅' : '☐'} 第${i+1}组
-          </button>
-        `).join('')}
-      </div>
-      ${breathLog.every(Boolean) ? '<p class="text-[10px] text-teal-500 mt-1.5 text-center">今日完成！👏</p>' : '<p class="text-[10px] text-teal-300 mt-1.5 text-center">点击完成每组打卡</p>'}
+      ${breathAllDone ? `
+        <button onclick="resetBreathing('${ds}')" class="w-full py-2 rounded-lg text-xs font-medium bg-teal-200 text-teal-700 border border-teal-300 transition">
+          ✅ 四组全部完成 · 点击重置
+        </button>
+      ` : `
+        <div class="flex gap-2">
+          ${[0,1,2,3].map(i => `
+            <button onclick="toggleBreathingSet('${ds}',${i})" class="flex-1 py-2 rounded-lg text-xs font-medium transition ${breathLog[i] ? 'bg-teal-200 text-teal-700' : 'bg-white/60 text-teal-400 hover:bg-teal-100'} border ${breathLog[i] ? 'border-teal-300' : 'border-teal-200'}">
+              ${breathLog[i] ? '✅' : '☐'} 第${i+1}组
+            </button>
+          `).join('')}
+        </div>
+        <p class="text-[10px] text-teal-300 mt-1.5 text-center">点击完成每组打卡</p>
+      `}
     </div>`;
 
   // 化妆练习打卡
@@ -911,10 +937,10 @@ function renderTodayTab() {
       } else {
         const tc = TYPE_COLORS[item.ptype] || 'stone';
         html += `
-          <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border ${item.done ? 'border-emerald-200 bg-emerald-50' : 'border-stone-100'} text-sm group active:bg-stone-50 transition">
+          <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl ${item.done ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-stone-100'} border text-sm group active:bg-stone-50 transition">
             <span class="text-lg flex-shrink-0">${item.icon || '📌'}</span>
-            <div class="flex-1 min-w-0 ${item.done ? 'line-through opacity-50' : ''}">
-              <div class="font-medium text-stone-700 truncate">${item.title}</div>
+            <div class="flex-1 min-w-0">
+              <div class="font-medium ${item.done ? 'text-emerald-700' : 'text-stone-700'} truncate">${item.title}</div>
               ${item.startTime ? `<div class="text-xs text-stone-400">${item.startTime}${item.endTime ? ' - ' + item.endTime : ''}</div>` : ''}
             </div>
             <button onclick="toggleDone('${ds}',${item.planIndex})" class="px-3 py-1.5 rounded-full text-xs font-bold transition flex-shrink-0 ${item.done ? 'bg-emerald-200 text-emerald-700' : 'bg-stone-100 text-stone-400 hover:bg-emerald-100 hover:text-emerald-600'}">
@@ -1052,6 +1078,13 @@ function toggleBreathingSet(ds, setIdx) {
   if (!data.breathingLog) data.breathingLog = {};
   if (!data.breathingLog[ds]) data.breathingLog[ds] = [false, false, false, false];
   data.breathingLog[ds][setIdx] = !data.breathingLog[ds][setIdx];
+  saveData();
+  renderTodayTab();
+}
+
+function resetBreathing(ds) {
+  if (!data.breathingLog) data.breathingLog = {};
+  data.breathingLog[ds] = [false, false, false, false];
   saveData();
   renderTodayTab();
 }
@@ -1383,6 +1416,18 @@ function renderGoalsTab() {
   });
   document.getElementById('travelPanel').innerHTML = th2 || '<p class="text-xs text-stone-300 text-center py-3">添加你想去的地方 ✈️</p>';
 
+  // 渲染行前准备
+  const prep = data.travelPrep || [];
+  let ph = '';
+  prep.forEach((p, i) => {
+    ph += `
+      <div class="flex items-center gap-2 px-3 py-2 rounded-lg ${p.done ? 'bg-emerald-50 border-emerald-100' : 'bg-stone-50 border-stone-100'} border text-sm group">
+        <span class="cursor-pointer flex-shrink-0" onclick="togglePrep(${i})">${p.done ? '✅' : p.icon}</span>
+        <span class="flex-1 text-xs ${p.done ? 'text-emerald-700' : 'text-stone-600'}">${p.title}</span>
+      </div>`;
+  });
+  document.getElementById('travelPrepPanel').innerHTML = ph || '<p class="text-xs text-stone-300">加载中...</p>';
+
   // 模板管理
   let th = '';
   data.templates.forEach((t, i) => {
@@ -1403,6 +1448,15 @@ function toggleWish(idx) {
   if (!data.wishlist) data.wishlist = [];
   if (data.wishlist[idx]) {
     data.wishlist[idx].done = !data.wishlist[idx].done;
+    saveData();
+    renderGoalsTab();
+  }
+}
+
+function togglePrep(idx) {
+  if (!data.travelPrep) data.travelPrep = getDefaultData().travelPrep;
+  if (data.travelPrep[idx]) {
+    data.travelPrep[idx].done = !data.travelPrep[idx].done;
     saveData();
     renderGoalsTab();
   }
