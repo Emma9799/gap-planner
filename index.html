@@ -251,6 +251,14 @@
         <p class="text-xs text-stone-300 text-center py-3">加载中...</p>
       </div>
 
+      <!-- AI 开销分析 -->
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4 mb-3" id="expenseAIPanel">
+        <p class="text-xs text-stone-300 text-center py-2">点击下方按钮生成分析</p>
+      </div>
+      <button onclick="analyzeExpenses()" class="w-full px-4 py-2.5 bg-rose-500 text-white text-sm rounded-xl active:bg-rose-600 transition font-medium mb-3">
+        <i class="fa fa-magic mr-1"></i>AI 分析本周开销
+      </button>
+
       <!-- 今日开销 -->
       <div class="flex items-center justify-between mb-2">
         <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide">💸 今日开销</p>
@@ -2312,6 +2320,73 @@ function deleteExpense(ds, idx) {
     saveData();
     renderExpenseTab();
   }
+}
+
+function analyzeExpenses() {
+  const off = data.summaryWeekOffset || 0;
+  const monday = getMondayOfWeek(off);
+  const catTotals = {};
+  let grandTotal = 0;
+  const dailyTotals = [];
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i);
+    const expenses = (data.expenses || {})[dateStr(d)] || [];
+    let dayTotal = 0;
+    expenses.forEach(e => {
+      const amt = parseFloat(e.amount || 0);
+      catTotals[e.cat] = (catTotals[e.cat] || 0) + amt;
+      grandTotal += amt;
+      dayTotal += amt;
+    });
+    dailyTotals.push(dayTotal);
+  }
+  const panel = document.getElementById('expenseAIPanel');
+  if (grandTotal === 0) {
+    panel.innerHTML = '<p class="text-xs text-stone-300 text-center py-2">暂无开销数据，先记几笔吧 📝</p>';
+    return;
+  }
+  // 本周分析
+  const sorted = Object.entries(catTotals).sort((a,b) => b[1] - a[1]);
+  const topCat = sorted[0];
+  const topPct = Math.round((topCat[1] / grandTotal) * 100);
+  const activeDays = dailyTotals.filter(t => t > 0).length;
+  const avgPerDay = grandTotal / Math.max(activeDays, 1);
+  // 上周对比
+  const prevMonday = addDays(monday, -7);
+  let prevTotal = 0;
+  for (let i = 0; i < 7; i++) {
+    const expenses = (data.expenses || {})[dateStr(addDays(prevMonday, i))] || [];
+    expenses.forEach(e => { prevTotal += parseFloat(e.amount || 0); });
+  }
+  let trendMsg = '';
+  if (prevTotal > 0) {
+    const change = grandTotal - prevTotal;
+    const pct = Math.round((Math.abs(change) / prevTotal) * 100);
+    if (change > 0) trendMsg = `比上周多了 ¥${change.toFixed(0)}（+${pct}%），留意消费趋势`;
+    else if (change < 0) trendMsg = `比上周少了 ¥${Math.abs(change).toFixed(0)}（-${pct}%），控制得不错 👏`;
+    else trendMsg = '和上周持平';
+  }
+  // 建议
+  const tips = [];
+  if (topPct > 40) tips.push(`「${topCat[0]}」占${topPct}%，是最大开销类别，可以留意是否必要`);
+  if (activeDays >= 6) tips.push('几乎每天都有开销，考虑设每周预算上限');
+  if (avgPerDay > 200) tips.push(`日均开销 ¥${avgPerDay.toFixed(0)}，季度累计会是一笔不小的数目`);
+  if (sorted.length === 1) tips.push('消费类别单一，尝试多样化生活体验');
+  if (sorted.length >= 5) tips.push('消费类别很丰富，生活在多方面展开 🌈');
+  if (tips.length === 0) tips.push('开销分布合理，继续保持 💪');
+
+  let h = `
+    <p class="text-xs font-semibold text-stone-600 mb-2">📊 开销分析</p>
+    <div class="space-y-1.5 text-xs text-stone-500">
+      <p>💰 总开销 <b class="text-rose-500">¥${grandTotal.toFixed(1)}</b> · ${activeDays}天有消费 · 日均 ¥${avgPerDay.toFixed(0)}</p>
+      <p>🏆 最大支出：<b>${topCat[0]}</b> ¥${topCat[1].toFixed(0)}（${topPct}%）</p>
+      ${trendMsg ? `<p>📈 ${trendMsg}</p>` : ''}
+      <div class="mt-2 pt-2 border-t border-stone-100">
+        <p class="text-[10px] text-stone-400 mb-1">💡 建议</p>
+        ${tips.map(t => `<p class="flex items-start gap-1"><span class="text-rose-400">→</span> ${t}</p>`).join('')}
+      </div>
+    </div>`;
+  panel.innerHTML = h;
 }
 
 // ============================================================
