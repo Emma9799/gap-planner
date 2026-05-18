@@ -168,6 +168,12 @@
         </div>
       </div>
 
+      <!-- 历史纪录片清单 -->
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">📽️ 历史纪录片</p>
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4">
+        <div class="space-y-3" id="docuListPanel"></div>
+      </div>
+
       <!-- 行前准备清单 -->
       <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">🧳 行前准备</p>
       <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4">
@@ -506,7 +512,8 @@ function getDefaultData() {
     supplementLog: {}, // { '2026-05-17': true } 每日保健品
     footbathLog: {}, // { '2026-05-17': true }
     appleLog: {}, // { '2026-05-17': true }
-    swimDoneLog: {}, // { '2026-05-17': true } 游泳完成打卡 每日化妆练习30分钟 4组完成情况
+    swimDoneLog: {}, // { '2026-05-17': true }
+    periodLog: {}, // { '2026-05-17': true } 经期记录 每日化妆练习30分钟 4组完成情况
     expenses: {}, // { '2026-05-17': [{ id, amount, cat, note }] }
     wishlist: [
       { id: 'qz', title: '泉州·拍簪花', icon: '🌸', done: false, city: '泉州' },
@@ -533,6 +540,18 @@ function getDefaultData() {
       { id: 'tp_plan', title: '查攻略/排行程', icon: '📋', done: false },
       { id: 'tp_meds', title: '准备药物/护肤品', icon: '💊', done: false },
       { id: 'tp_pack', title: '打包行李', icon: '🧳', done: false },
+    ],
+    docuList: [
+      { id: 'd1', title: '文明的轨迹 (Civilisation)', sub: 'BBC · 西方艺术与思想史', icon: '🎬', done: false, cat: '通史' },
+      { id: 'd2', title: '世界历史 (History of the World)', sub: 'BBC · 8集入门', icon: '🎬', done: false, cat: '通史' },
+      { id: 'd3', title: '安德鲁·玛尔的世界史', sub: '8集 · 叙事性强', icon: '🎬', done: false, cat: '通史' },
+      { id: 'd4', title: '人类：我们的故事 (Mankind)', sub: '12集 · 节奏快', icon: '🎬', done: false, cat: '通史' },
+      { id: 'd5', title: '丝绸之路 (The Silk Road)', sub: 'NHK/BBC · 欧亚连接', icon: '🐪', done: false, cat: '专题' },
+      { id: 'd6', title: '罗马：帝国的兴衰', sub: 'BBC · 古典时期必看', icon: '🏛️', done: false, cat: '专题' },
+      { id: 'd7', title: '二战全史 (The World at War)', sub: '26集 · 最权威二战纪录片', icon: '⚔️', done: false, cat: '专题' },
+      { id: 'd8', title: '冷战 (Cold War)', sub: 'CNN · 24集 · 理解当代格局', icon: '🌐', done: false, cat: '专题' },
+      { id: 'd9', title: '中国通史 (CCTV)', sub: '100集 · 挑关键朝代看', icon: '🇨🇳', done: false, cat: '中国' },
+      { id: 'd10', title: '河西走廊 (CCTV)', sub: '10集 · 制作精良', icon: '🏜️', done: false, cat: '中国' },
     ],
     weatherGood: true,
     viewedDayOffset: 0,
@@ -584,7 +603,9 @@ function loadData() {
       data.footbathLog = data.footbathLog || {};
       data.appleLog = data.appleLog || {};
       data.swimDoneLog = data.swimDoneLog || {};
+      data.periodLog = data.periodLog || {};
       data.travelPrep = data.travelPrep || getDefaultData().travelPrep;
+      data.docuList = data.docuList || getDefaultData().docuList;
       data.expenses = data.expenses || {};
       data.wishlist = data.wishlist || getDefaultData().wishlist;
       // 迁移旧心愿项补充 city 字段
@@ -882,6 +903,20 @@ function renderTodayTab() {
       </button>
     </div>`;
 
+  // 经期记录
+  const periodDone = (data.periodLog || {})[ds] || false;
+  html += `
+    <div class="bg-gradient-to-r from-rose-50 to-red-50 rounded-xl border border-rose-100 p-3 mb-3 flex items-center gap-3">
+      <span class="text-2xl">🩸</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold text-rose-600">经期记录</div>
+        <div class="text-[10px] text-rose-400">记录今日</div>
+      </div>
+      <button onclick="togglePeriod('${ds}')" class="px-4 py-2 rounded-full text-xs font-bold transition ${periodDone ? 'bg-rose-200 text-rose-700' : 'bg-rose-100 text-rose-500 hover:bg-rose-200'}">
+        ${periodDone ? '🔴 经期' : '☐ 记录'}
+      </button>
+    </div>`;
+
   // 完美日判定（所有打卡变量都已定义后再检查）
   const allDoneToday = breathAllDone && makeupDone && suppDone && footbathDone && appleDone;
   if (allDoneToday) {
@@ -1133,6 +1168,13 @@ function toggleFootbath(ds) {
 function toggleApple(ds) {
   if (!data.appleLog) data.appleLog = {};
   data.appleLog[ds] = !data.appleLog[ds];
+  saveData();
+  renderTodayTab();
+}
+
+function togglePeriod(ds) {
+  if (!data.periodLog) data.periodLog = {};
+  data.periodLog[ds] = !data.periodLog[ds];
   saveData();
   renderTodayTab();
 }
@@ -1448,6 +1490,41 @@ function renderGoalsTab() {
   });
   document.getElementById('travelPrepPanel').innerHTML = ph || '<p class="text-xs text-stone-300">加载中...</p>';
 
+  // 渲染纪录片清单（按类别分组）
+  const docs = data.docuList || [];
+  const docCats = {};
+  docs.forEach(d => {
+    const cat = d.cat || '其他';
+    if (!docCats[cat]) docCats[cat] = [];
+    docCats[cat].push(d);
+  });
+  let dh = '';
+  Object.keys(docCats).forEach(cat => {
+    const items = docCats[cat];
+    const doneCount = items.filter(d => d.done).length;
+    dh += `
+      <div>
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span class="text-[10px] font-semibold text-stone-500 uppercase">${cat}</span>
+          <span class="text-[10px] text-stone-300">${doneCount}/${items.length}</span>
+        </div>
+        <div class="space-y-1">
+          ${items.map(d => {
+            const globalIdx = docs.indexOf(d);
+            return `
+            <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${d.done ? 'bg-emerald-50' : 'bg-stone-50'} text-sm group">
+              <span class="cursor-pointer flex-shrink-0" onclick="toggleDocu(${globalIdx})">${d.done ? '✅' : d.icon}</span>
+              <div class="flex-1 min-w-0">
+                <span class="text-xs ${d.done ? 'text-emerald-700' : 'text-stone-600'}">${d.title}</span>
+                ${d.sub ? `<span class="text-[10px] text-stone-400 ml-1">${d.sub}</span>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  });
+  document.getElementById('docuListPanel').innerHTML = dh || '<p class="text-xs text-stone-300">加载中...</p>';
+
   // 模板管理
   let th = '';
   data.templates.forEach((t, i) => {
@@ -1477,6 +1554,15 @@ function togglePrep(idx) {
   if (!data.travelPrep) data.travelPrep = getDefaultData().travelPrep;
   if (data.travelPrep[idx]) {
     data.travelPrep[idx].done = !data.travelPrep[idx].done;
+    saveData();
+    renderGoalsTab();
+  }
+}
+
+function toggleDocu(idx) {
+  if (!data.docuList) data.docuList = getDefaultData().docuList;
+  if (data.docuList[idx]) {
+    data.docuList[idx].done = !data.docuList[idx].done;
     saveData();
     renderGoalsTab();
   }
