@@ -174,6 +174,12 @@
         <div class="space-y-3" id="docuListPanel"></div>
       </div>
 
+      <!-- 经期记录 -->
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">🩸 经期记录</p>
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4" id="periodPanel">
+        <p class="text-xs text-stone-300 text-center py-2">暂无记录</p>
+      </div>
+
       <!-- 行前准备清单 -->
       <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">🧳 行前准备</p>
       <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4">
@@ -513,7 +519,8 @@ function getDefaultData() {
     footbathLog: {}, // { '2026-05-17': true }
     appleLog: {}, // { '2026-05-17': true }
     swimDoneLog: {}, // { '2026-05-17': true }
-    periodLog: {}, // { '2026-05-17': true } 经期记录 每日化妆练习30分钟 4组完成情况
+    periodLog: { cycles: [] }, // { cycles: [{ start: '2026-05-15', days: 5 }] }
+    sleepLog: {}, // { '2026-05-17': { bedtime: '23:30', wake: '07:00' } }
     expenses: {}, // { '2026-05-17': [{ id, amount, cat, note }] }
     wishlist: [
       { id: 'qz', title: '泉州·拍簪花', icon: '🌸', done: false, city: '泉州' },
@@ -603,7 +610,11 @@ function loadData() {
       data.footbathLog = data.footbathLog || {};
       data.appleLog = data.appleLog || {};
       data.swimDoneLog = data.swimDoneLog || {};
-      data.periodLog = data.periodLog || {};
+      // 迁移旧版经期记录格式
+      if (!data.periodLog || !data.periodLog.cycles) {
+        data.periodLog = { cycles: [] };
+      }
+      data.sleepLog = data.sleepLog || {};
       data.travelPrep = data.travelPrep || getDefaultData().travelPrep;
       data.docuList = data.docuList || getDefaultData().docuList;
       data.expenses = data.expenses || {};
@@ -903,18 +914,21 @@ function renderTodayTab() {
       </button>
     </div>`;
 
-  // 经期记录
-  const periodDone = (data.periodLog || {})[ds] || false;
+  // 睡眠记录
+  const sleepData = (data.sleepLog || {})[ds] || { bedtime: '', wake: '' };
   html += `
-    <div class="bg-gradient-to-r from-rose-50 to-red-50 rounded-xl border border-rose-100 p-3 mb-3 flex items-center gap-3">
-      <span class="text-2xl">🩸</span>
-      <div class="flex-1 min-w-0">
-        <div class="text-xs font-semibold text-rose-600">经期记录</div>
-        <div class="text-[10px] text-rose-400">记录今日</div>
+    <div class="bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100 p-3 mb-3">
+      <div class="flex items-center gap-1.5 mb-2">
+        <span class="text-xs font-semibold text-indigo-600">😴 睡眠记录</span>
+        ${sleepData.bedtime && sleepData.wake ? `<span class="text-[10px] text-indigo-400 ml-auto">约 ${calcSleepHours(sleepData.bedtime, sleepData.wake)}h</span>` : ''}
       </div>
-      <button onclick="togglePeriod('${ds}')" class="px-4 py-2 rounded-full text-xs font-bold transition ${periodDone ? 'bg-rose-200 text-rose-700' : 'bg-rose-100 text-rose-500 hover:bg-rose-200'}">
-        ${periodDone ? '🔴 经期' : '☐ 记录'}
-      </button>
+      <div class="flex items-center gap-2">
+        <input type="time" value="${sleepData.bedtime}" placeholder="入睡" onchange="saveSleep('${ds}','bedtime',this.value)"
+          class="flex-1 px-2 py-2 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <span class="text-[10px] text-stone-300">至</span>
+        <input type="time" value="${sleepData.wake}" placeholder="起床" onchange="saveSleep('${ds}','wake',this.value)"
+          class="flex-1 px-2 py-2 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400">
+      </div>
     </div>`;
 
   // 完美日判定（所有打卡变量都已定义后再检查）
@@ -1173,8 +1187,34 @@ function toggleApple(ds) {
 }
 
 function togglePeriod(ds) {
-  if (!data.periodLog) data.periodLog = {};
-  data.periodLog[ds] = !data.periodLog[ds];
+  recordNewPeriod();
+}
+
+function recordNewPeriod() {
+  const start = prompt('月经开始日期（如 5月15日）：');
+  if (!start) return;
+  const days = parseInt(prompt('持续了几天？', '5'));
+  if (!days || days <= 0) return;
+  if (!data.periodLog || !data.periodLog.cycles) data.periodLog = { cycles: [] };
+  data.periodLog.cycles.push({ start, days });
+  saveData();
+  renderGoalsTab();
+  showToast('经期已记录');
+}
+
+function calcSleepHours(bedtime, wake) {
+  if (!bedtime || !wake) return '';
+  const [bh, bm] = bedtime.split(':').map(Number);
+  const [wh, wm] = wake.split(':').map(Number);
+  let mins = (wh * 60 + wm) - (bh * 60 + bm);
+  if (mins < 0) mins += 24 * 60;
+  return (mins / 60).toFixed(1);
+}
+
+function saveSleep(ds, field, value) {
+  if (!data.sleepLog) data.sleepLog = {};
+  if (!data.sleepLog[ds]) data.sleepLog[ds] = { bedtime: '', wake: '' };
+  data.sleepLog[ds][field] = value;
   saveData();
   renderTodayTab();
 }
@@ -1524,6 +1564,29 @@ function renderGoalsTab() {
       </div>`;
   });
   document.getElementById('docuListPanel').innerHTML = dh || '<p class="text-xs text-stone-300">加载中...</p>';
+
+  // 渲染经期记录
+  const cycles = (data.periodLog && data.periodLog.cycles) ? data.periodLog.cycles : [];
+  let ph2 = '';
+  if (cycles.length > 0) {
+    const last = cycles[cycles.length - 1];
+    const predDate = addDays(new Date(last.start + 'T00:00:00'), 28);
+    ph2 += `
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-stone-500">最近一次：<b>${last.start}</b> · ${last.days}天</span>
+        <span class="text-[10px] text-rose-400">预计下次：${formatMD(predDate)}</span>
+      </div>
+      <div class="space-y-1 text-[10px] text-stone-400">
+        ${cycles.slice(-3).reverse().map(c => `<div class="flex justify-between"><span>${c.start}</span><span>${c.days}天</span></div>`).join('')}
+      </div>`;
+  } else {
+    ph2 = '<p class="text-xs text-stone-300 text-center py-1">点击下方记录</p>';
+  }
+  ph2 += `
+    <button onclick="recordNewPeriod()" class="mt-2 w-full px-3 py-2 text-xs bg-rose-50 text-rose-600 rounded-xl active:bg-rose-100 transition font-medium">
+      <i class="fa fa-plus mr-1"></i>记录本次经期
+    </button>`;
+  document.getElementById('periodPanel').innerHTML = ph2;
 
   // 模板管理
   let th = '';
@@ -1962,6 +2025,7 @@ function generateWeeklySummary() {
   let makeupDays = 0, breathDays = 0, swimDays = 0, gymDays = 0, suppDays = 0, footbathDays = 0, appleDays = 0;
   let weekExpenseTotal = 0;
   const expenseCatTotals = {};
+  const sleepHours = [];
 
   for (let i = 0; i < 7; i++) {
     const d = addDays(monday, i);
@@ -1989,6 +2053,11 @@ function generateWeeklySummary() {
     if ((data.supplementLog || {})[ds]) suppDays++;
     if ((data.footbathLog || {})[ds]) footbathDays++;
     if ((data.appleLog || {})[ds]) appleDays++;
+    // 睡眠数据
+    const sleep = (data.sleepLog || {})[ds];
+    if (sleep && sleep.bedtime && sleep.wake) {
+      sleepHours.push({ day: dayNameCN(d), bedtime: sleep.bedtime, wake: sleep.wake, hours: parseFloat(calcSleepHours(sleep.bedtime, sleep.wake)) });
+    }
     // 开销
     const expenses = (data.expenses || {})[ds] || [];
     expenses.forEach(e => {
@@ -2034,6 +2103,18 @@ function generateWeeklySummary() {
   // 苹果
   if (appleDays < 5) suggestions.push('苹果有' + (7-appleDays) + '天没吃，下周每天一个苹果');
   if (appleDays >= 6) suggestions.push('每日苹果坚持得很好！');
+  // 睡眠分析
+  if (sleepHours.length >= 4) {
+    const avgSleep = sleepHours.reduce((s, h) => s + h.hours, 0) / sleepHours.length;
+    const avgBedtime = sleepHours.reduce((s, h) => s + parseInt(h.bedtime), 0) / sleepHours.length;
+    const lateDays = sleepHours.filter(h => parseInt(h.bedtime) >= 24 || parseInt(h.bedtime) < 0 ? false : parseInt(h.bedtime) >= 0 && parseInt(h.bedtime) < 1).length;
+    if (avgSleep < 7) suggestions.push(`平均睡眠仅${avgSleep.toFixed(1)}h，不足7小时，下周争取早睡`);
+    else if (avgSleep >= 8) suggestions.push(`睡眠充足（均${avgSleep.toFixed(1)}h），保持！`);
+    if (sleepHours.some(h => parseInt(h.bedtime) >= 1 && parseInt(h.bedtime) <= 2)) suggestions.push('有凌晨1-2点入睡的记录，注意作息规律');
+    if (sleepHours.length < 5) suggestions.push('本周睡眠记录不足，建议每天记录入睡和起床时间');
+  } else {
+    suggestions.push('睡眠记录偏少，每天在今日页记录入睡/起床时间有助于了解作息');
+  }
   // 户外
   if ((typeCounts['🚴 户外'] || 0) < 2) suggestions.push('户外活动偏少，天气好时可以骑车或户外看书');
   // 游泳
@@ -2064,6 +2145,17 @@ function generateWeeklySummary() {
           ${wakeupTimes.map(w => `<span class="px-1.5 py-0.5 rounded bg-amber-50 text-[10px] text-amber-600">${w.day} ${w.time}</span>`).join('')}
         </div>
         ${wakeupAvg ? `<p class="text-[10px] text-stone-400">平均 ${wakeupAvg} · ${wakeupConsistency}</p>` : ''}
+      </div>`;
+  }
+  // 睡眠数据
+  if (sleepHours.length > 0) {
+    const avgSleep = sleepHours.reduce((s, h) => s + h.hours, 0) / sleepHours.length;
+    h += `
+      <div class="mb-3">
+        <p class="text-[10px] text-stone-400 mb-1.5">😴 ${weekLabel}睡眠 · 均${avgSleep.toFixed(1)}h</p>
+        <div class="flex flex-wrap gap-1.5">
+          ${sleepHours.map(s => `<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-[10px] text-indigo-600">${s.day} ${s.bedtime}-${s.wake} (${s.hours}h)</span>`).join('')}
+        </div>
       </div>`;
   }
   // 关键词
