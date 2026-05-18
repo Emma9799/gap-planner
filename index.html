@@ -795,23 +795,13 @@ function renderTodayTab() {
         <span class="text-[10px] text-purple-300">${formatMD(d)}</span>
       </div>
       <p class="text-sm text-stone-600 leading-relaxed italic">"${getQuoteOfDay()}"</p>
-    </div>`;
+    </div>
+    <!--PERFECT_DAY-->`;
 
   // 死虫式呼吸打卡
   const breathLog = (data.breathingLog || {})[ds] || [false, false, false, false];
-  while (breathLog.length < 4) breathLog.push(false); // 确保4组
-
-  // 完美日判定
+  while (breathLog.length < 4) breathLog.push(false);
   const breathAllDone = breathLog.every(Boolean);
-  const allDoneToday = breathAllDone && makeupDone && suppDone && footbathDone && appleDone;
-  if (allDoneToday) {
-    html += `
-      <div class="bg-gradient-to-r from-yellow-50 via-amber-50 to-orange-50 rounded-xl border border-yellow-200 p-3 mb-3 text-center">
-        <span class="text-2xl">🌟</span>
-        <p class="text-sm font-bold text-amber-600 mt-1">今日全勤！完美的一天</p>
-        <p class="text-[10px] text-amber-400">呼吸 · 化妆 · 保健品 · 泡脚 · 苹果 全部完成</p>
-      </div>`;
-  }
 
   html += `
     <div class="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl border border-teal-100 p-3 mb-3">
@@ -891,6 +881,19 @@ function renderTodayTab() {
         ${appleDone ? '✅ 已吃' : '☐ 打卡'}
       </button>
     </div>`;
+
+  // 完美日判定（所有打卡变量都已定义后再检查）
+  const allDoneToday = breathAllDone && makeupDone && suppDone && footbathDone && appleDone;
+  if (allDoneToday) {
+    html = html.replace('<!--PERFECT_DAY-->', `
+      <div class="bg-gradient-to-r from-yellow-50 via-amber-50 to-orange-50 rounded-xl border border-yellow-200 p-3 mb-3 text-center">
+        <span class="text-2xl">🌟</span>
+        <p class="text-sm font-bold text-amber-600 mt-1">今日全勤！完美的一天</p>
+        <p class="text-[10px] text-amber-400">呼吸 · 化妆 · 保健品 · 泡脚 · 苹果 全部完成</p>
+      </div>`);
+  } else {
+    html = html.replace('<!--PERFECT_DAY-->', '');
+  }
 
   // 合并固定日程 + 自由活动，按时间排序
   const swimDoneForDay = (data.swimDoneLog || {})[ds] || false;
@@ -2198,9 +2201,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('customInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); addCustomToViewedDay(); }
   });
-  document.getElementById('dayDetailInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); addToDayDetail(); }
-  });
   document.getElementById('newTemplateInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); addTemplate(); }
   });
@@ -2222,18 +2222,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('quickEndTime').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); confirmQuickTime(); }
   });
-  // 每日小记手动保存
-  function saveDailyNote() {
-    const input = document.getElementById('dailyNoteInput');
-    const ds = input.dataset.date;
-    if (!ds) return;
-    if (!data.dailyNotes) data.dailyNotes = {};
-    const val = input.value.trim();
-    if (val) data.dailyNotes[ds] = val;
-    else delete data.dailyNotes[ds];
-    saveData();
-    showToast('小记已保存 ✍️');
-  }
 });
 
 // ============================================================
