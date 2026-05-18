@@ -505,7 +505,8 @@ function getDefaultData() {
     wakeupLog: {}, // { '2026-05-17': '07:30' }
     supplementLog: {}, // { '2026-05-17': true } 每日保健品
     footbathLog: {}, // { '2026-05-17': true }
-    appleLog: {}, // { '2026-05-17': true } 每日一苹果 每日化妆练习30分钟 4组完成情况
+    appleLog: {}, // { '2026-05-17': true }
+    swimDoneLog: {}, // { '2026-05-17': true } 游泳完成打卡 每日化妆练习30分钟 4组完成情况
     expenses: {}, // { '2026-05-17': [{ id, amount, cat, note }] }
     wishlist: [
       { id: 'qz', title: '泉州·拍簪花', icon: '🌸', done: false, city: '泉州' },
@@ -582,6 +583,7 @@ function loadData() {
       data.supplementLog = data.supplementLog || {};
       data.footbathLog = data.footbathLog || {};
       data.appleLog = data.appleLog || {};
+      data.swimDoneLog = data.swimDoneLog || {};
       data.travelPrep = data.travelPrep || getDefaultData().travelPrep;
       data.expenses = data.expenses || {};
       data.wishlist = data.wishlist || getDefaultData().wishlist;
@@ -797,6 +799,7 @@ function renderTodayTab() {
 
   // 死虫式呼吸打卡
   const breathLog = (data.breathingLog || {})[ds] || [false, false, false, false];
+  while (breathLog.length < 4) breathLog.push(false); // 确保4组
 
   // 完美日判定
   const breathAllDone = breathLog.every(Boolean);
@@ -890,11 +893,12 @@ function renderTodayTab() {
     </div>`;
 
   // 合并固定日程 + 自由活动，按时间排序
+  const swimDoneForDay = (data.swimDoneLog || {})[ds] || false;
   const fixedEvents = [gym, swim].filter(Boolean);
   const timelineItems = [];
   // 固定日程
   fixedEvents.forEach(e => {
-    timelineItems.push({ type: 'fixed', title: e.title, icon: e.icon, time: e.time, endTime: e.endTime, color: e.color, rest: e.rest || false, isGym: e === gym, isSwim: e === swim, sortTime: e.time });
+    timelineItems.push({ type: 'fixed', title: e.title, icon: e.icon, time: e.time, endTime: e.endTime, color: e.color, rest: e.rest || false, isGym: e === gym, isSwim: e === swim, sortTime: e.time, swimDone: e === swim ? swimDoneForDay : false });
   });
   // 自由活动
   plans.forEach((p, i) => {
@@ -931,7 +935,8 @@ function renderTodayTab() {
                 <div class="text-xs text-stone-400">${item.time} - ${item.endTime}</div>
               </div>
               ${item.isGym ? '<span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-600">本周课表</span>' : ''}
-              ${item.isSwim ? `<button onclick="toggleSwimRest('${ds}')" class="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-400 active:bg-stone-200 transition" title="标记为休息日">休息</button>` : ''}
+              ${item.isSwim ? `<button onclick="toggleSwimDone('${ds}')" class="text-xs px-2 py-0.5 rounded-full font-bold transition flex-shrink-0 ${item.swimDone ? 'bg-sky-200 text-sky-700' : 'bg-stone-100 text-stone-400 active:bg-sky-100'}">${item.swimDone ? '✅' : '☐'}</button>
+                <button onclick="toggleSwimRest('${ds}')" class="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-400 active:bg-stone-200 transition" title="标记为休息日">休息</button>` : ''}
             </div>`;
         }
       } else {
@@ -1074,9 +1079,21 @@ function toggleSwimRest(ds) {
   renderTodayTab();
 }
 
+function toggleSwimDone(ds) {
+  if (!data.swimDoneLog) data.swimDoneLog = {};
+  data.swimDoneLog[ds] = !data.swimDoneLog[ds];
+  saveData();
+  renderTodayTab();
+}
+
 function toggleBreathingSet(ds, setIdx) {
   if (!data.breathingLog) data.breathingLog = {};
-  if (!data.breathingLog[ds]) data.breathingLog[ds] = [false, false, false, false];
+  const arr = data.breathingLog[ds];
+  if (!arr || arr.length !== 4) {
+    data.breathingLog[ds] = [false, false, false, false];
+  }
+  // 确保数组有4个元素
+  while (data.breathingLog[ds].length < 4) data.breathingLog[ds].push(false);
   data.breathingLog[ds][setIdx] = !data.breathingLog[ds][setIdx];
   saveData();
   renderTodayTab();
