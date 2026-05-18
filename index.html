@@ -549,16 +549,16 @@ function getDefaultData() {
       { id: 'tp_pack', title: '打包行李', icon: '🧳', done: false },
     ],
     docuList: [
-      { id: 'd1', title: '文明的轨迹 (Civilisation)', sub: 'BBC · 西方艺术与思想史', icon: '🎬', done: false, cat: '通史' },
-      { id: 'd2', title: '世界历史 (History of the World)', sub: 'BBC · 8集入门', icon: '🎬', done: false, cat: '通史' },
-      { id: 'd3', title: '安德鲁·玛尔的世界史', sub: '8集 · 叙事性强', icon: '🎬', done: false, cat: '通史' },
-      { id: 'd4', title: '人类：我们的故事 (Mankind)', sub: '12集 · 节奏快', icon: '🎬', done: false, cat: '通史' },
-      { id: 'd5', title: '丝绸之路 (The Silk Road)', sub: 'NHK/BBC · 欧亚连接', icon: '🐪', done: false, cat: '专题' },
-      { id: 'd6', title: '罗马：帝国的兴衰', sub: 'BBC · 古典时期必看', icon: '🏛️', done: false, cat: '专题' },
-      { id: 'd7', title: '二战全史 (The World at War)', sub: '26集 · 最权威二战纪录片', icon: '⚔️', done: false, cat: '专题' },
-      { id: 'd8', title: '冷战 (Cold War)', sub: 'CNN · 24集 · 理解当代格局', icon: '🌐', done: false, cat: '专题' },
-      { id: 'd9', title: '中国通史 (CCTV)', sub: '100集 · 挑关键朝代看', icon: '🇨🇳', done: false, cat: '中国' },
-      { id: 'd10', title: '河西走廊 (CCTV)', sub: '10集 · 制作精良', icon: '🏜️', done: false, cat: '中国' },
+      { id: 'd1', title: '历史那些事 (B站)', sub: '一边搞笑一边学历史 · 每集30分钟', icon: '🤣', done: false, cat: '轻松入门' },
+      { id: 'd2', title: '如果国宝会说话 (CCTV)', sub: '每集5分钟 · 文物讲故事', icon: '🗿', done: false, cat: '轻松入门' },
+      { id: 'd3', title: '糟糕历史 Horrible Histories', sub: 'BBC儿童节目 · 成人看到停不下来', icon: '💀', done: false, cat: '轻松入门' },
+      { id: 'd4', title: '抽象：设计的艺术 (Netflix)', sub: '每集一位设计大师 · 视觉盛宴', icon: '🎨', done: false, cat: '轻松入门' },
+      { id: 'd5', title: '舌尖上的中国 (CCTV)', sub: '食物里的中国历史 · 下饭神器', icon: '🍜', done: false, cat: '中国文化' },
+      { id: 'd6', title: '我在故宫修文物', sub: '故宫里的匠人故事 · 豆瓣9.4', icon: '🔧', done: false, cat: '中国文化' },
+      { id: 'd7', title: '河西走廊 (CCTV)', sub: '10集 · 电影级画面质感', icon: '🏜️', done: false, cat: '中国文化' },
+      { id: 'd8', title: '文明 (Civilisations, BBC 2018)', sub: '9集新版 · 比1969版节奏快很多', icon: '🎬', done: false, cat: '世界通史' },
+      { id: 'd9', title: '人类宇宙 (Human Universe)', sub: 'Brian Cox教授 · 科学+哲学思考', icon: '🌌', done: false, cat: '世界通史' },
+      { id: 'd10', title: '解释一切 (Explained, Netflix)', sub: '每集20分钟解释一个话题', icon: '💡', done: false, cat: '世界通史' },
     ],
     weatherGood: true,
     viewedDayOffset: 0,
@@ -1193,13 +1193,23 @@ function togglePeriod(ds) {
 function recordNewPeriod() {
   const start = prompt('月经开始日期（如 5月15日）：');
   if (!start) return;
-  const days = parseInt(prompt('持续了几天？', '5'));
-  if (!days || days <= 0) return;
+  const days = prompt('持续天数？（不确定可先留空，之后再补）', '');
   if (!data.periodLog || !data.periodLog.cycles) data.periodLog = { cycles: [] };
-  data.periodLog.cycles.push({ start, days });
+  data.periodLog.cycles.push({ start, days: days ? parseInt(days) : null });
   saveData();
   renderGoalsTab();
-  showToast('经期已记录');
+  showToast(days ? cheer('period') : '经期开始已记录，结束后补天数 ✍️');
+}
+
+function completePeriod(idx) {
+  if (!data.periodLog || !data.periodLog.cycles) return;
+  const c = data.periodLog.cycles[idx];
+  const days = parseInt(prompt(`「${c.start}」持续了几天？`, '5'));
+  if (!days || days <= 0) return;
+  c.days = days;
+  saveData();
+  renderGoalsTab();
+  showToast('经期记录完整了 🩸');
 }
 
 function calcSleepHours(bedtime, wake) {
@@ -1216,6 +1226,11 @@ function saveSleep(ds, field, value) {
   if (!data.sleepLog[ds]) data.sleepLog[ds] = { bedtime: '', wake: '' };
   data.sleepLog[ds][field] = value;
   saveData();
+  const s = data.sleepLog[ds];
+  if (s.bedtime && s.wake) {
+    const msg = sleepCompareMsg(ds, s.bedtime, s.wake);
+    if (msg) showToast(msg);
+  }
   renderTodayTab();
 }
 
@@ -1570,17 +1585,24 @@ function renderGoalsTab() {
   let ph2 = '';
   if (cycles.length > 0) {
     const last = cycles[cycles.length - 1];
-    const predDate = addDays(new Date(last.start + 'T00:00:00'), 28);
-    ph2 += `
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-xs text-stone-500">最近一次：<b>${last.start}</b> · ${last.days}天</span>
-        <span class="text-[10px] text-rose-400">预计下次：${formatMD(predDate)}</span>
-      </div>
-      <div class="space-y-1 text-[10px] text-stone-400">
-        ${cycles.slice(-3).reverse().map(c => `<div class="flex justify-between"><span>${c.start}</span><span>${c.days}天</span></div>`).join('')}
-      </div>`;
+    ph2 += `<div class="text-xs text-stone-500 mb-2">共记录 ${cycles.length} 次</div>`;
+    cycles.slice(-5).reverse().forEach((c, i) => {
+      const realIdx = cycles.length - 1 - i;
+      ph2 += `
+        <div class="flex items-center justify-between py-1.5 border-b border-stone-50 last:border-0 text-xs">
+          <span class="text-stone-600">🩸 ${c.start}</span>
+          ${c.days ? `<span class="text-rose-500">${c.days}天</span>` : `<button onclick="completePeriod(${realIdx})" class="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-500">补天数</button>`}
+        </div>`;
+    });
+    if (last.days) {
+      const lastDate = new Date('2026/' + last.start.replace('月','/').replace('日',''));
+      if (!isNaN(lastDate.getTime())) {
+        const predDate = addDays(lastDate, 28);
+        ph2 += `<p class="text-[10px] text-rose-300 mt-2">预计下次：约 ${formatMD(predDate)}（28天周期）</p>`;
+      }
+    }
   } else {
-    ph2 = '<p class="text-xs text-stone-300 text-center py-1">点击下方记录</p>';
+    ph2 = '<p class="text-xs text-stone-300 text-center py-1">暂无记录</p>';
   }
   ph2 += `
     <button onclick="recordNewPeriod()" class="mt-2 w-full px-3 py-2 text-xs bg-rose-50 text-rose-600 rounded-xl active:bg-rose-100 transition font-medium">
@@ -2309,6 +2331,53 @@ function deleteExpense(ds, idx) {
     saveData();
     renderExpenseTab();
   }
+}
+
+// ============================================================
+// 正反馈系统
+// ============================================================
+function cheer(type) {
+  const pool = {
+    breath: ['呼吸稳了，身体醒了 🫁','核心力量+1！','四组完成，今日已赢在起跑线 ✨','气息越来越稳 👏'],
+    makeup: ['今日份精致已到账 💄','30分钟换一整天的自信 ✨','技术是练出来的，你正在变厉害','每天都比昨天更会画'],
+    supplement: ['身体会感谢你的 💊','今日营养充值成功 ✅','内服外养，越来越美'],
+    footbath: ['今晚好眠预订 🦶','泡脚是爱自己的方式','暖从脚底起的治愈'],
+    apple: ['医生今天不会来 🍎','一天一苹果，气色up up','今日维C任务达成！'],
+    swim: ['水中自有宁静 🏊','自由泳技术+1 🌊','今晚的泳池因你而美丽','像鱼一样自在'],
+    task_done: ['又完成一项，越来越有条理 ✨','咔咔完成！你比自己想象的更有行动力','一项一项，都在变好'],
+    task_undo: ['没关系，重新来过就好','节奏自己掌握'],
+    wakeup: ['早起的人先享受世界 🌅','今天也是早起冠军！'],
+    gym: ['力量在增长 💪','肌肉在悄悄变强'],
+    note: ['今天的思考会被未来的自己感谢 ✍️','写下来的，都是成长'],
+    expense: ['记账是最基础的理财 💰','清楚每一分钱的流向'],
+    wish: ['又多了一个想看世界的理由 ✈️','地图上多了一颗星'],
+    prep: ['准备越充分，旅行越从容 🧳'],
+    period: ['了解自己的身体节奏很重要 🩸','周期规律是健康的信号'],
+    docu: ['看完一部，世界观+1 🎬','历史是时间的旅行'],
+  };
+  const opts = pool[type] || ['完成！👏','太棒了！','坚持就是胜利 ✨'];
+  return opts[Math.floor(Math.random() * opts.length)];
+}
+
+function calcSleepHours(bedtime, wake) {
+  if (!bedtime || !wake) return '';
+  const [bh, bm] = bedtime.split(':').map(Number);
+  const [wh, wm] = wake.split(':').map(Number);
+  let mins = (wh * 60 + wm) - (bh * 60 + bm);
+  if (mins < 0) mins += 24 * 60;
+  return (mins / 60).toFixed(1);
+}
+
+function sleepCompareMsg(ds, bedtime, wake) {
+  const yesterday = dateStr(addDays(new Date(ds + 'T00:00:00'), -1));
+  const prev = (data.sleepLog || {})[yesterday];
+  if (!prev || !prev.bedtime || !prev.wake) return '';
+  const todayH = parseFloat(calcSleepHours(bedtime, wake));
+  const prevH = parseFloat(calcSleepHours(prev.bedtime, prev.wake));
+  const diff = todayH - prevH;
+  if (diff > 0.5) return `比昨天多睡了${Math.round(diff*60)}分钟，睡饱了精神好 ✨`;
+  if (diff < -0.5) return `比昨天少睡了${Math.round(-diff*60)}分钟，今晚早点休息 🌙`;
+  return '睡眠和昨天差不多，保持稳定 👌';
 }
 
 // ============================================================
