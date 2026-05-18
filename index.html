@@ -169,7 +169,19 @@
       </div>
 
       <!-- 本周活动统计 -->
-      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mt-6 mb-2">📊 本周活动比例</p>
+      <div class="flex items-center justify-between mb-2">
+        <button onclick="shiftSummaryWeek(-1)" class="w-7 h-7 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-400 active:bg-stone-100 transition">
+          <i class="fa fa-chevron-left text-[10px]"></i>
+        </button>
+        <span class="text-xs font-semibold text-stone-400 uppercase tracking-wide" id="summaryWeekLabel">📊 本周活动</span>
+        <button onclick="shiftSummaryWeek(1)" class="w-7 h-7 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-400 active:bg-stone-100 transition">
+          <i class="fa fa-chevron-right text-[10px]"></i>
+        </button>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4 mb-3" id="weeklyStatsPanel"></div>
+
+      <!-- 本周开销比率 -->
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-2">📊 开销比率</p>
       <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4" id="weeklyStatsPanel"></div>
 
       <!-- 本周小结 + 下周建议 -->
@@ -490,6 +502,7 @@ function getDefaultData() {
     weatherGood: true,
     viewedDayOffset: 0,
     viewedWeekOffset: 0,
+    summaryWeekOffset: 0, // 周小结/开销统计的周偏移
   };
 }
 
@@ -707,8 +720,8 @@ function switchTab(name) {
   });
 
   if (name === 'today') renderTodayTab();
-  else if (name === 'goals') { renderGoalsTab(); renderWeeklyStats(); }
-  else if (name === 'expense') renderExpenseTab();
+  else if (name === 'goals') { updateSummaryWeekLabel(); renderGoalsTab(); renderWeeklyStats(); }
+  else if (name === 'expense') { updateSummaryWeekLabel(); renderExpenseTab(); }
 }
 
 // ============================================================
@@ -879,6 +892,23 @@ function renderQuickAddBar() {
     </button>`;
   });
   container.innerHTML = h;
+}
+
+function shiftSummaryWeek(dir) {
+  data.summaryWeekOffset = (data.summaryWeekOffset || 0) + dir;
+  if (data.summaryWeekOffset > 1) data.summaryWeekOffset = 1; // 最多前看一周
+  saveData();
+  updateSummaryWeekLabel();
+  renderWeeklyStats();
+  renderWeeklyExpenseStats();
+}
+
+function updateSummaryWeekLabel() {
+  const off = data.summaryWeekOffset || 0;
+  const monday = getMondayOfWeek(off);
+  const sunday = addDays(monday, 6);
+  const label = off === 0 ? '📊 本周' : off === -1 ? '📊 上周' : `📊 ${monday.getMonth()+1}/${monday.getDate()}-${sunday.getMonth()+1}/${sunday.getDate()}`;
+  document.getElementById('summaryWeekLabel').textContent = label;
 }
 
 function shiftDay(dir) {
@@ -1603,7 +1633,7 @@ function initWeather() {
 function renderWeeklyStats() {
   const panel = document.getElementById('weeklyStatsPanel');
   if (!panel) return;
-  const monday = getMondayOfWeek(0);
+  const monday = getMondayOfWeek(data.summaryWeekOffset || 0);
   const typeCounts = {};
   let total = 0;
   for (let i = 0; i < 7; i++) {
@@ -1683,7 +1713,9 @@ function extractKeywords(notesArray) {
 }
 
 function generateWeeklySummary() {
-  const monday = getMondayOfWeek(0);
+  const monday = getMondayOfWeek(data.summaryWeekOffset || 0);
+  const off = data.summaryWeekOffset || 0;
+  const weekLabel = off === 0 ? '本周' : off === -1 ? '上周' : `这周`;
   const notes = data.dailyNotes || {};
   const notesArray = [];
   const wakeupTimes = [];
@@ -1782,7 +1814,7 @@ function generateWeeklySummary() {
   if (wakeupTimes.length > 0) {
     h += `
       <div class="mb-3">
-        <p class="text-[10px] text-stone-400 mb-1.5">⏰ 本周起床记录</p>
+        <p class="text-[10px] text-stone-400 mb-1.5">⏰ ${weekLabel}起床记录</p>
         <div class="flex flex-wrap gap-1.5 mb-1">
           ${wakeupTimes.map(w => `<span class="px-1.5 py-0.5 rounded bg-amber-50 text-[10px] text-amber-600">${w.day} ${w.time}</span>`).join('')}
         </div>
@@ -1803,7 +1835,7 @@ function generateWeeklySummary() {
   h += `
     <div class="mb-3">
       <p class="text-[10px] text-stone-400 mb-1.5">📈 本周数据</p>
-      <p class="text-xs text-stone-500">活动 ${totalActivities} 项 · 小记 ${notesArray.length} 天 · 呼吸 ${breathDays}/7 · 化妆 ${makeupDays}/7 · 保健品 ${suppDays}/7${weekExpenseTotal > 0 ? ` · 开销 ¥${weekExpenseTotal.toFixed(0)}` : ''}</p>
+      <p class="text-xs text-stone-500">${weekLabel}活动 ${totalActivities} 项 · 小记 ${notesArray.length} 天 · 呼吸 ${breathDays}/7 · 化妆 ${makeupDays}/7 · 保健品 ${suppDays}/7${weekExpenseTotal > 0 ? ` · 开销 ¥${weekExpenseTotal.toFixed(0)}` : ''}</p>
     </div>`;
   // 建议
   h += `
@@ -1847,7 +1879,7 @@ function renderExpenseTab() {
 }
 
 function renderWeeklyExpenseStats() {
-  const monday = getMondayOfWeek(0);
+  const monday = getMondayOfWeek(data.summaryWeekOffset || 0);
   const catTotals = {};
   let grandTotal = 0;
   for (let i = 0; i < 7; i++) {
