@@ -522,6 +522,8 @@ function getDefaultData() {
     swimDoneLog: {}, // { '2026-05-17': true }
     periodLog: { cycles: [] }, // { cycles: [{ start: '2026-05-15', days: 5 }] }
     sleepLog: {}, // { '2026-05-17': { bedtime: '23:30', wake: '07:00' } }
+    moxaLog: {}, // 每日艾灸
+    turmericLog: {}, // 每日姜黄饮
     expenses: {}, // { '2026-05-17': [{ id, amount, cat, note }] }
     wishlist: [
       { id: 'qz', title: '泉州·拍簪花', icon: '🌸', done: false, city: '泉州' },
@@ -616,6 +618,8 @@ function loadData() {
         data.periodLog = { cycles: [] };
       }
       data.sleepLog = data.sleepLog || {};
+      data.moxaLog = data.moxaLog || {};
+      data.turmericLog = data.turmericLog || {};
       data.travelPrep = data.travelPrep || getDefaultData().travelPrep;
       data.docuList = data.docuList || getDefaultData().docuList;
       data.expenses = data.expenses || {};
@@ -915,6 +919,34 @@ function renderTodayTab() {
       </button>
     </div>`;
 
+  // 艾灸打卡
+  const moxaDone = (data.moxaLog || {})[ds] || false;
+  html += `
+    <div class="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-100 p-3 mb-3 flex items-center gap-3">
+      <span class="text-2xl">🔥</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold text-orange-600">每日早晨艾灸</div>
+        <div class="text-[10px] text-orange-400">温经通络</div>
+      </div>
+      <button onclick="toggleMoxa('${ds}')" class="px-4 py-2 rounded-full text-xs font-bold transition ${moxaDone ? 'bg-orange-200 text-orange-700' : 'bg-orange-100 text-orange-500 hover:bg-orange-200'}">
+        ${moxaDone ? '✅ 已灸' : '☐ 打卡'}
+      </button>
+    </div>`;
+
+  // 姜黄饮打卡
+  const turmericDone = (data.turmericLog || {})[ds] || false;
+  html += `
+    <div class="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-100 p-3 mb-3 flex items-center gap-3">
+      <span class="text-2xl">🟡</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold text-yellow-600">每日早晨姜黄饮</div>
+        <div class="text-[10px] text-yellow-400">抗炎抗氧化</div>
+      </div>
+      <button onclick="toggleTurmeric('${ds}')" class="px-4 py-2 rounded-full text-xs font-bold transition ${turmericDone ? 'bg-yellow-200 text-yellow-700' : 'bg-yellow-100 text-yellow-500 hover:bg-yellow-200'}">
+        ${turmericDone ? '✅ 已喝' : '☐ 打卡'}
+      </button>
+    </div>`;
+
   // 睡眠记录
   const sleepData = (data.sleepLog || {})[ds] || { bedtime: '', wake: '' };
   html += `
@@ -1183,6 +1215,20 @@ function toggleFootbath(ds) {
 function toggleApple(ds) {
   if (!data.appleLog) data.appleLog = {};
   data.appleLog[ds] = !data.appleLog[ds];
+  saveData();
+  renderTodayTab();
+}
+
+function toggleMoxa(ds) {
+  if (!data.moxaLog) data.moxaLog = {};
+  data.moxaLog[ds] = !data.moxaLog[ds];
+  saveData();
+  renderTodayTab();
+}
+
+function toggleTurmeric(ds) {
+  if (!data.turmericLog) data.turmericLog = {};
+  data.turmericLog[ds] = !data.turmericLog[ds];
   saveData();
   renderTodayTab();
 }
@@ -2033,7 +2079,7 @@ function generateWeeklySummary() {
 
   let totalActivities = 0;
   const typeCounts = {};
-  let makeupDays = 0, breathDays = 0, swimDays = 0, gymDays = 0, suppDays = 0, footbathDays = 0, appleDays = 0;
+  let makeupDays = 0, breathDays = 0, swimDays = 0, gymDays = 0, suppDays = 0, footbathDays = 0, appleDays = 0, moxaDays = 0, turmericDays = 0;
   let weekExpenseTotal = 0;
   const expenseCatTotals = {};
   const sleepHours = [];
@@ -2064,6 +2110,8 @@ function generateWeeklySummary() {
     if ((data.supplementLog || {})[ds]) suppDays++;
     if ((data.footbathLog || {})[ds]) footbathDays++;
     if ((data.appleLog || {})[ds]) appleDays++;
+    if ((data.moxaLog || {})[ds]) moxaDays++;
+    if ((data.turmericLog || {})[ds]) turmericDays++;
     // 睡眠数据
     const sleep = (data.sleepLog || {})[ds];
     if (sleep && sleep.bedtime && sleep.wake) {
@@ -2114,6 +2162,11 @@ function generateWeeklySummary() {
   // 苹果
   if (appleDays < 5) suggestions.push('苹果有' + (7-appleDays) + '天没吃，下周每天一个苹果');
   if (appleDays >= 6) suggestions.push('每日苹果坚持得很好！');
+  // 艾灸 + 姜黄饮
+  if (moxaDays < 4) suggestions.push('艾灸有' + (7-moxaDays) + '天没做，早晨艾灸有助于阳气升发');
+  if (moxaDays >= 5) suggestions.push('艾灸坚持得很好！温经通络，身体会感受到');
+  if (turmericDays < 4) suggestions.push('姜黄饮有' + (7-turmericDays) + '天没喝，早晨一杯抗炎又好喝');
+  if (turmericDays >= 5) suggestions.push('姜黄饮坚持得很好！抗炎体质养成中');
   // 睡眠分析
   if (sleepHours.length >= 4) {
     const avgSleep = sleepHours.reduce((s, h) => s + h.hours, 0) / sleepHours.length;
@@ -2183,7 +2236,7 @@ function generateWeeklySummary() {
   h += `
     <div class="mb-3">
       <p class="text-[10px] text-stone-400 mb-1.5">📈 本周数据</p>
-      <p class="text-xs text-stone-500">${weekLabel}活动 ${totalActivities} 项 · 小记 ${notesArray.length} 天 · 呼吸 ${breathDays}/7 · 化妆 ${makeupDays}/7 · 保健品 ${suppDays}/7 · 泡脚 ${footbathDays}/7 · 苹果 ${appleDays}/7${weekExpenseTotal > 0 ? ` · 开销 ¥${weekExpenseTotal.toFixed(0)}` : ''}</p>
+      <p class="text-xs text-stone-500">${weekLabel}活动 ${totalActivities} 项 · 小记 ${notesArray.length} 天 · 呼吸 ${breathDays}/7 · 化妆 ${makeupDays}/7 · 保健品 ${suppDays}/7 · 泡脚 ${footbathDays}/7 · 苹果 ${appleDays}/7 · 艾灸 ${moxaDays}/7 · 姜黄 ${turmericDays}/7${weekExpenseTotal > 0 ? ` · 开销 ¥${weekExpenseTotal.toFixed(0)}` : ''}</p>
     </div>`;
   // 建议
   h += `
